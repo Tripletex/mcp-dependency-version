@@ -1,0 +1,21 @@
+{
+  "name": "mcp-dependency-version",
+  "version": "1.0.0",
+  "exports": "./main.ts",
+  "tasks": {
+    "start": "deno run --allow-net --allow-env main.ts",
+    "dev": "deno run --allow-net --allow-env --watch main.ts",
+    "check": "deno check main.ts",
+    "test": "deno test --allow-net",
+    "lint": "deno lint",
+    "fmt": "deno fmt"
+  },
+  "imports": {
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@1.25.3",
+    "zod": "npm:zod@3.25.76"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true
+  }
+}

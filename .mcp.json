@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "mcp-dependency-version": {
+      "command": "deno",
+      "args": [
+        "run",
+        "--allow-net",
+        "--allow-env",
+        "--allow-read",
+        "main.ts"
+      ],
+      "cwd": "."
+    }
+  }
+}

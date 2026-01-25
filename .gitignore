@@ -1,0 +1,15 @@
+# IDE
+.idea/
+.vscode/
+
+# Claude Code local settings
+.claude/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node modules (if any npm packages are used)
+node_modules/
