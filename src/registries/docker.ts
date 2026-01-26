@@ -5,20 +5,20 @@
  */
 
 import type {
+  LookupOptions,
+  PackageMetadata,
   Registry,
   RegistryClient,
-  VersionInfo,
   VersionDetail,
-  PackageMetadata,
-  LookupOptions,
+  VersionInfo,
 } from "./types.ts";
 import {
-  isPrerelease,
-  sortVersionsDescending,
-  findLatestStable,
-  findLatestPrerelease,
   filterByPrefix,
+  findLatestPrerelease,
+  findLatestStable,
+  isPrerelease,
   parseVersion,
+  sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
@@ -57,6 +57,19 @@ interface ParsedImageName {
   namespace: string;
   repository: string;
   fullName: string;
+}
+
+/**
+ * Generate security notes for Docker images
+ * Explains that Docker tags are NOT immutable and recommends digest-pinned references
+ */
+function generateDockerSecurityNotes(): string[] {
+  return [
+    "WARNING: Docker tags are NOT immutable. A tag can be moved to point to a different image at any time.",
+    "Using the digest-pinned reference (image@sha256:...) provides protection against tag tampering.",
+    "Digest-pinned references ensure you always pull the exact same image, preventing supply chain attacks.",
+    "When updating, explicitly change the digest and verify the new image before deployment.",
+  ];
 }
 
 export class DockerClient implements RegistryClient {
@@ -114,7 +127,8 @@ export class DockerClient implements RegistryClient {
 
     // Check for version-variant patterns like "1.0-alpine"
     const versionPart = tag.split("-")[0];
-    return parseVersion(versionPart) !== null || /^\d+(\.\d+)*$/.test(versionPart);
+    return parseVersion(versionPart) !== null ||
+      /^\d+(\.\d+)*$/.test(versionPart);
   }
 
   /**
@@ -148,7 +162,7 @@ export class DockerClient implements RegistryClient {
   private async fetchTags(
     imageName: string,
     repositoryName?: string,
-    limit = 100
+    limit = 100,
   ): Promise<{ tags: DockerHubTagResult[]; total: number }> {
     const repoConfig = getRepositoryConfig("docker", repositoryName);
     const parsed = this.parseImageName(imageName);
@@ -160,7 +174,10 @@ export class DockerClient implements RegistryClient {
     }
 
     // Docker Hub API for tags
-    const url = `${repoConfig.url}/v2/repositories/${parsed.fullName}/tags?page_size=${Math.min(limit, 100)}`;
+    const url =
+      `${repoConfig.url}/v2/repositories/${parsed.fullName}/tags?page_size=${
+        Math.min(limit, 100)
+      }`;
     const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
 
     if (!response.ok) {
@@ -168,7 +185,7 @@ export class DockerClient implements RegistryClient {
         throw new Error(`Image '${imageName}' not found on ${repoConfig.name}`);
       }
       throw new Error(
-        `${repoConfig.name} error: ${response.status} ${response.statusText}`
+        `${repoConfig.name} error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -180,7 +197,7 @@ export class DockerClient implements RegistryClient {
 
   private async fetchRepoInfo(
     imageName: string,
-    repositoryName?: string
+    repositoryName?: string,
   ): Promise<DockerHubRepoResponse> {
     const repoConfig = getRepositoryConfig("docker", repositoryName);
     const parsed = this.parseImageName(imageName);
@@ -199,7 +216,7 @@ export class DockerClient implements RegistryClient {
         throw new Error(`Image '${imageName}' not found on ${repoConfig.name}`);
       }
       throw new Error(
-        `${repoConfig.name} error: ${response.status} ${response.statusText}`
+        `${repoConfig.name} error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -210,7 +227,7 @@ export class DockerClient implements RegistryClient {
 
   async lookupVersion(
     imageName: string,
-    options?: LookupOptions & { repository?: string }
+    options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
     const { tags } = await this.fetchTags(imageName, options?.repository, 100);
 
@@ -246,14 +263,26 @@ export class DockerClient implements RegistryClient {
 
     if (!latestStable) {
       throw new Error(
-        `No stable version found for '${imageName}'${options?.versionPrefix ? ` with prefix '${options.versionPrefix}'` : ""}`
+        `No stable version found for '${imageName}'${
+          options?.versionPrefix
+            ? ` with prefix '${options.versionPrefix}'`
+            : ""
+        }`,
       );
     }
 
     // Find the tag data for the latest stable
     const latestTagData = tags.find(
-      (t) => t.name === latestStable || this.getBaseVersion(t.name) === latestStable
+      (t) =>
+        t.name === latestStable || this.getBaseVersion(t.name) === latestStable,
     );
+
+    // Get digest for secure reference
+    const digest = latestTagData?.digest;
+    const parsed = this.parseImageName(imageName);
+    const displayName = parsed.namespace === "library"
+      ? parsed.repository
+      : `${parsed.namespace}/${parsed.repository}`;
 
     const result: VersionInfo = {
       packageName: imageName,
@@ -263,6 +292,9 @@ export class DockerClient implements RegistryClient {
         ? new Date(latestTagData.last_updated)
         : undefined,
       deprecated: latestTagData?.tag_status === "stale",
+      digest,
+      secureReference: digest ? `${displayName}@${digest}` : undefined,
+      securityNotes: generateDockerSecurityNotes(),
     };
 
     // Include latest prerelease if requested
@@ -283,7 +315,7 @@ export class DockerClient implements RegistryClient {
 
   async listVersions(
     imageName: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<VersionDetail[]> {
     const { tags } = await this.fetchTags(imageName, options?.repository, 100);
 
@@ -293,7 +325,7 @@ export class DockerClient implements RegistryClient {
 
     // Sort semver tags by version
     const sortedSemver = sortVersionsDescending(
-      semverTags.map((t) => t.name)
+      semverTags.map((t) => t.name),
     ).map((name) => tags.find((t) => t.name === name)!);
 
     // Sort non-semver tags by date
@@ -311,13 +343,14 @@ export class DockerClient implements RegistryClient {
       publishedAt: tag.last_updated ? new Date(tag.last_updated) : undefined,
       isPrerelease: isPrerelease(tag.name),
       isDeprecated: tag.tag_status === "stale",
+      digest: tag.digest,
     }));
   }
 
   async getMetadata(
     imageName: string,
     _version?: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<PackageMetadata> {
     const repoInfo = await this.fetchRepoInfo(imageName, options?.repository);
     const parsed = this.parseImageName(imageName);
@@ -326,7 +359,9 @@ export class DockerClient implements RegistryClient {
       name: imageName,
       registry: "docker",
       description: repoInfo.description || undefined,
-      homepage: `https://hub.docker.com/${parsed.namespace === "library" ? "_" : "r"}/${parsed.fullName}`,
+      homepage: `https://hub.docker.com/${
+        parsed.namespace === "library" ? "_" : "r"
+      }/${parsed.fullName}`,
       repository: undefined, // Docker Hub doesn't expose source repository in API
     };
   }

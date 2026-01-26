@@ -1,43 +1,71 @@
 # MCP Dependency Version
 
-A Model Context Protocol (MCP) server for looking up package versions across multiple package registries.
+A Model Context Protocol (MCP) server for looking up package versions across
+multiple package registries.
 
 ## Features
 
-- **Multi-registry support**: npm, Maven Central, PyPI, crates.io, Go proxy, JSR, NuGet, Docker Hub
+- **Multi-registry support**: npm, Maven Central, PyPI, crates.io, Go proxy,
+  JSR, NuGet, Docker Hub
 - **Version lookup**: Get the latest stable (and optionally prerelease) versions
 - **Version listing**: List all available versions with metadata
-- **Vulnerability scanning**: Check packages against the OSV (Open Source Vulnerabilities) database
+- **Vulnerability scanning**: Check packages against the OSV (Open Source
+  Vulnerabilities) database
 - **Dependency analysis**: Analyze dependency files and check for updates
-- **Docker support**: Look up image tags and analyze Dockerfile/docker-compose.yml dependencies
+- **Docker support**: Look up image tags and analyze
+  Dockerfile/docker-compose.yml dependencies
 
 ## Security: Use Exact Versions
 
-**Always use exact versions instead of version ranges to prevent supply chain attacks.**
+**Always use exact versions instead of version ranges to prevent supply chain
+attacks.**
 
 | Bad (vulnerable) | Good (secure) |
-|------------------|---------------|
-| `^1.2.3` | `1.2.3` |
-| `~1.2.3` | `1.2.3` |
-| `>=1.2.3` | `1.2.3` |
-| `1.x` | `1.2.3` |
+| ---------------- | ------------- |
+| `^1.2.3`         | `1.2.3`       |
+| `~1.2.3`         | `1.2.3`       |
+| `>=1.2.3`        | `1.2.3`       |
+| `1.x`            | `1.2.3`       |
 
-Version ranges (like `^1.2.3` or `~1.2.3`) allow automatic updates when new minor or patch versions are published. If an attacker compromises a package and publishes a malicious version, your project could automatically pull it in without your knowledge.
+Version ranges (like `^1.2.3` or `~1.2.3`) allow automatic updates when new
+minor or patch versions are published. If an attacker compromises a package and
+publishes a malicious version, your project could automatically pull it in
+without your knowledge.
 
-Using exact versions ensures you control exactly which code runs in your project. When you want to update, explicitly change the version and review the changes.
+Using exact versions ensures you control exactly which code runs in your
+project. When you want to update, explicitly change the version and review the
+changes.
+
+### Docker: Use Digest-Pinned References
+
+**Docker tags are NOT immutable.** Unlike package versions in npm/PyPI/etc., a
+Docker tag can be moved to point to a completely different image at any time.
+
+| Bad (vulnerable) | Good (secure)               |
+| ---------------- | --------------------------- |
+| `nginx:1.27.3`   | `nginx@sha256:1948e0c46...` |
+| `postgres:16`    | `postgres@sha256:abc123...` |
+
+When you use `nginx:1.27.3`, the image you pull today may be different from the
+one you pull tomorrow if the tag is updated. This creates a supply chain attack
+vector.
+
+**Use digest-pinned references** (`image@sha256:...`) to ensure you always pull
+the exact same image. The `lookup_version` and `list_versions` tools return the
+`digest` and `secureReference` fields for Docker images to make this easy.
 
 ## Supported Registries
 
-| Registry | API Endpoint | Package Format |
-|----------|--------------|----------------|
-| npm | registry.npmjs.org | `package-name`, `@scope/package` |
-| maven | repo1.maven.org/maven2 | `groupId:artifactId` |
-| pypi | pypi.org | `package-name` |
-| cargo | crates.io | `crate-name` |
-| go | proxy.golang.org | `github.com/user/repo` |
-| jsr | api.jsr.io | `@scope/name` |
-| nuget | api.nuget.org | `Package.Name` |
-| docker | hub.docker.com | `image`, `user/image` |
+| Registry | API Endpoint           | Package Format                   |
+| -------- | ---------------------- | -------------------------------- |
+| npm      | registry.npmjs.org     | `package-name`, `@scope/package` |
+| maven    | repo1.maven.org/maven2 | `groupId:artifactId`             |
+| pypi     | pypi.org               | `package-name`                   |
+| cargo    | crates.io              | `crate-name`                     |
+| go       | proxy.golang.org       | `github.com/user/repo`           |
+| jsr      | api.jsr.io             | `@scope/name`                    |
+| nuget    | api.nuget.org          | `Package.Name`                   |
+| docker   | hub.docker.com         | `image`, `user/image`            |
 
 ## Installation
 
@@ -47,7 +75,9 @@ Using exact versions ensures you control exactly which code runs in your project
 
 ### Setup with Claude Desktop
 
-Add to your Claude Desktop configuration file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `~/.config/claude-desktop/claude_desktop_config.json` on Linux):
+Add to your Claude Desktop configuration file
+(`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS,
+`~/.config/claude-desktop/claude_desktop_config.json` on Linux):
 
 ```json
 {
@@ -121,7 +151,9 @@ docker run --rm -i ghcr.io/tripletex/mcp-dependency-version:latest
 
 ## Configuration
 
-The server supports custom repository configurations for each registry type. This allows you to use private registries, mirrors, or multiple repositories per registry.
+The server supports custom repository configurations for each registry type.
+This allows you to use private registries, mirrors, or multiple repositories per
+registry.
 
 ### Configuration File
 
@@ -180,7 +212,8 @@ Create a configuration file at `~/.config/mcp-dependency-version/config.json`:
 
 ### Environment Variable
 
-You can override the config file path using the `MCP_DEPENDENCY_VERSION_CONFIG` environment variable:
+You can override the config file path using the `MCP_DEPENDENCY_VERSION_CONFIG`
+environment variable:
 
 ```bash
 export MCP_DEPENDENCY_VERSION_CONFIG=/path/to/config.json
@@ -191,6 +224,7 @@ export MCP_DEPENDENCY_VERSION_CONFIG=/path/to/config.json
 The configuration supports two authentication methods:
 
 **Bearer Token:**
+
 ```json
 {
   "auth": {
@@ -200,6 +234,7 @@ The configuration supports two authentication methods:
 ```
 
 **Basic Auth:**
+
 ```json
 {
   "auth": {
@@ -213,16 +248,16 @@ The configuration supports two authentication methods:
 
 If no configuration file exists, the server uses the official public registries:
 
-| Registry | Default URL |
-|----------|-------------|
-| npm | https://registry.npmjs.org |
-| maven | https://repo1.maven.org/maven2 |
-| pypi | https://pypi.org/pypi |
-| cargo | https://crates.io/api/v1/crates |
-| go | https://proxy.golang.org |
-| jsr | https://api.jsr.io |
-| nuget | https://api.nuget.org/v3 |
-| docker | https://hub.docker.com |
+| Registry | Default URL                     |
+| -------- | ------------------------------- |
+| npm      | https://registry.npmjs.org      |
+| maven    | https://repo1.maven.org/maven2  |
+| pypi     | https://pypi.org/pypi           |
+| cargo    | https://crates.io/api/v1/crates |
+| go       | https://proxy.golang.org        |
+| jsr      | https://api.jsr.io              |
+| nuget    | https://api.nuget.org/v3        |
+| docker   | https://hub.docker.com          |
 
 ## Tools
 
@@ -231,12 +266,15 @@ If no configuration file exists, the server uses the official public registries:
 Look up the latest version of a package.
 
 **Parameters:**
-- `registry` (required): Package registry (`npm`, `maven`, `pypi`, `cargo`, `go`, `jsr`, `nuget`, `docker`)
+
+- `registry` (required): Package registry (`npm`, `maven`, `pypi`, `cargo`,
+  `go`, `jsr`, `nuget`, `docker`)
 - `package` (required): Package name
 - `includePrerelease` (optional): Include alpha/beta/rc versions
 - `versionPrefix` (optional): Filter versions by prefix (e.g., `"2."` for 2.x)
 
 **Example:**
+
 ```json
 {
   "registry": "npm",
@@ -245,6 +283,7 @@ Look up the latest version of a package.
 ```
 
 **Output:**
+
 ```json
 {
   "packageName": "lodash",
@@ -254,16 +293,37 @@ Look up the latest version of a package.
 }
 ```
 
+**Docker Output (includes digest for secure pinning):**
+
+```json
+{
+  "packageName": "nginx",
+  "registry": "docker",
+  "latestStable": "1.27.3",
+  "publishedAt": "2024-12-04T18:51:59.819Z",
+  "digest": "sha256:1948e0c46da16a3565a844aa65ab848e1546f85cf47e47d044a567906a3a497f",
+  "secureReference": "nginx@sha256:1948e0c46da16a3565a844aa65ab848e1546f85cf47e47d044a567906a3a497f",
+  "securityNotes": [
+    "WARNING: Docker tags are NOT immutable. A tag can be moved to point to a different image at any time.",
+    "Using the digest-pinned reference (image@sha256:...) provides protection against tag tampering.",
+    "Digest-pinned references ensure you always pull the exact same image, preventing supply chain attacks.",
+    "When updating, explicitly change the digest and verify the new image before deployment."
+  ]
+}
+```
+
 ### list_versions
 
 List all available versions of a package.
 
 **Parameters:**
+
 - `registry` (required): Package registry
 - `package` (required): Package name
 - `limit` (optional): Maximum versions to return (default: 20)
 
 **Example:**
+
 ```json
 {
   "registry": "pypi",
@@ -273,6 +333,7 @@ List all available versions of a package.
 ```
 
 **Output:**
+
 ```json
 {
   "packageName": "requests",
@@ -295,12 +356,15 @@ List all available versions of a package.
 Check a package version for known security vulnerabilities.
 
 **Parameters:**
+
 - `registry` (required): Package registry
 - `package` (required): Package name
 - `version` (required): Version to check
-- `severityThreshold` (optional): Minimum severity (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`)
+- `severityThreshold` (optional): Minimum severity (`LOW`, `MEDIUM`, `HIGH`,
+  `CRITICAL`)
 
 **Example:**
+
 ```json
 {
   "registry": "npm",
@@ -310,6 +374,7 @@ Check a package version for known security vulnerabilities.
 ```
 
 **Output:**
+
 ```json
 {
   "packageName": "lodash",
@@ -340,26 +405,32 @@ Check a package version for known security vulnerabilities.
 Analyze a dependency file and check for available updates.
 
 **Parameters:**
-- `content` (required): File content (package.json, pom.xml, build.gradle, build.gradle.kts, requirements.txt, Cargo.toml, go.mod, deno.json, *.csproj)
+
+- `content` (required): File content (package.json, pom.xml, build.gradle,
+  build.gradle.kts, requirements.txt, Cargo.toml, go.mod, deno.json, *.csproj)
 - `registry` (required): Package registry (use `maven` for Gradle files)
-- `checkVulnerabilities` (optional): Also scan for vulnerabilities (default: false)
+- `checkVulnerabilities` (optional): Also scan for vulnerabilities (default:
+  false)
 
 **Supported Dependency Files:**
 
-| Registry | File Formats |
-|----------|--------------|
-| npm | `package.json` |
-| maven | `pom.xml`, `build.gradle` (Groovy), `build.gradle.kts` (Kotlin) |
-| pypi | `requirements.txt` |
-| cargo | `Cargo.toml` |
-| go | `go.mod` |
-| jsr | `deno.json` (supports jsr: and npm: imports) |
-| nuget | `*.csproj` (PackageReference format) |
-| docker | `Dockerfile`, `docker-compose.yml` |
+| Registry | File Formats                                                    |
+| -------- | --------------------------------------------------------------- |
+| npm      | `package.json`                                                  |
+| maven    | `pom.xml`, `build.gradle` (Groovy), `build.gradle.kts` (Kotlin) |
+| pypi     | `requirements.txt`                                              |
+| cargo    | `Cargo.toml`                                                    |
+| go       | `go.mod`                                                        |
+| jsr      | `deno.json` (supports jsr: and npm: imports)                    |
+| nuget    | `*.csproj` (PackageReference format)                            |
+| docker   | `Dockerfile`, `docker-compose.yml`                              |
 
-**Note:** For Gradle files, variable references (`$version`, `${libs.xxx}`, version catalogs) are skipped since they can't be resolved without evaluating the build.
+**Note:** For Gradle files, variable references (`$version`, `${libs.xxx}`,
+version catalogs) are skipped since they can't be resolved without evaluating
+the build.
 
 **Example (npm):**
+
 ```json
 {
   "content": "{\"dependencies\": {\"lodash\": \"^4.17.20\", \"express\": \"^4.18.0\"}}",
@@ -369,6 +440,7 @@ Analyze a dependency file and check for available updates.
 ```
 
 **Example (Gradle Kotlin DSL):**
+
 ```json
 {
   "content": "dependencies {\n    implementation(\"org.springframework.boot:spring-boot-starter:3.2.0\")\n    testImplementation(\"org.junit.jupiter:junit-jupiter:5.10.0\")\n}",
@@ -377,6 +449,7 @@ Analyze a dependency file and check for available updates.
 ```
 
 **Output:**
+
 ```json
 {
   "registry": "npm",
@@ -417,23 +490,27 @@ Analyze a dependency file and check for available updates.
 Get README documentation for a package.
 
 **Parameters:**
-- `registry` (required): Package registry (`npm`, `maven`, `pypi`, `cargo`, `go`, `jsr`, `nuget`, `docker`)
+
+- `registry` (required): Package registry (`npm`, `maven`, `pypi`, `cargo`,
+  `go`, `jsr`, `nuget`, `docker`)
 - `package` (required): Package name
 - `version` (optional): Specific version to get documentation for
 
 **Documentation Sources:**
-| Registry | README Source | Repository URL Source |
-|----------|---------------|----------------------|
-| npm | Registry API | `repository` field |
-| pypi | Registry API (description) | `project_urls` field |
-| cargo | Registry API | `repository` field |
-| maven | GitHub (fallback) | POM `<scm>` section |
-| go | GitHub (fallback) | Module path (if github.com) |
-| jsr | GitHub (fallback) | `githubRepository` field |
-| nuget | GitHub (fallback) | Catalog entry |
-| docker | GitHub (fallback) | Docker Hub page |
+
+| Registry | README Source              | Repository URL Source       |
+| -------- | -------------------------- | --------------------------- |
+| npm      | Registry API               | `repository` field          |
+| pypi     | Registry API (description) | `project_urls` field        |
+| cargo    | Registry API               | `repository` field          |
+| maven    | GitHub (fallback)          | POM `<scm>` section         |
+| go       | GitHub (fallback)          | Module path (if github.com) |
+| jsr      | GitHub (fallback)          | `githubRepository` field    |
+| nuget    | GitHub (fallback)          | Catalog entry               |
+| docker   | GitHub (fallback)          | Docker Hub page             |
 
 **Example:**
+
 ```json
 {
   "registry": "npm",
@@ -442,6 +519,7 @@ Get README documentation for a package.
 ```
 
 **Output:**
+
 ```
 # lodash Documentation
 Registry: npm
@@ -539,17 +617,17 @@ mcp-dependency-version/
 
 ### Registry APIs
 
-| Registry | API Endpoint | Documentation |
-|----------|--------------|---------------|
-| npm | `registry.npmjs.org/{package}` | [docs](https://github.com/npm/registry/blob/master/docs/REGISTRY-API.md) |
-| Maven | `repo1.maven.org/maven2` | [docs](https://central.sonatype.com/search) |
-| PyPI | `pypi.org/pypi/{package}/json` | [docs](https://warehouse.pypa.io/api-reference/json.html) |
-| Cargo | `crates.io/api/v1/crates/{crate}` | [docs](https://crates.io/data-access) |
-| Go | `proxy.golang.org/{module}/@v/list` | [docs](https://go.dev/ref/mod#goproxy-protocol) |
-| JSR | `api.jsr.io/scopes/{scope}/packages/{name}` | [docs](https://jsr.io/docs/api) |
-| NuGet | `api.nuget.org/v3-flatcontainer/{id}/index.json` | [docs](https://learn.microsoft.com/en-us/nuget/api/overview) |
-| Docker | `hub.docker.com/v2/repositories/{image}/tags` | [docs](https://docs.docker.com/docker-hub/api/latest/) |
-| OSV | `api.osv.dev/v1/query` | [docs](https://osv.dev/docs/) |
+| Registry | API Endpoint                                     | Documentation                                                            |
+| -------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
+| npm      | `registry.npmjs.org/{package}`                   | [docs](https://github.com/npm/registry/blob/master/docs/REGISTRY-API.md) |
+| Maven    | `repo1.maven.org/maven2`                         | [docs](https://central.sonatype.com/search)                              |
+| PyPI     | `pypi.org/pypi/{package}/json`                   | [docs](https://warehouse.pypa.io/api-reference/json.html)                |
+| Cargo    | `crates.io/api/v1/crates/{crate}`                | [docs](https://crates.io/data-access)                                    |
+| Go       | `proxy.golang.org/{module}/@v/list`              | [docs](https://go.dev/ref/mod#goproxy-protocol)                          |
+| JSR      | `api.jsr.io/scopes/{scope}/packages/{name}`      | [docs](https://jsr.io/docs/api)                                          |
+| NuGet    | `api.nuget.org/v3-flatcontainer/{id}/index.json` | [docs](https://learn.microsoft.com/en-us/nuget/api/overview)             |
+| Docker   | `hub.docker.com/v2/repositories/{image}/tags`    | [docs](https://docs.docker.com/docker-hub/api/latest/)                   |
+| OSV      | `api.osv.dev/v1/query`                           | [docs](https://osv.dev/docs/)                                            |
 
 ## License
 
