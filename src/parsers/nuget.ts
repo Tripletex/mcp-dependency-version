@@ -20,16 +20,19 @@ function parse(content: string): ParsedDependency[] {
 
   // Match PackageReference with Version as attribute
   // <PackageReference Include="Name" Version="1.0.0" />
-  const attrRegex = /<PackageReference\s+[^>]*Include\s*=\s*["']([^"']+)["'][^>]*Version\s*=\s*["']([^"']+)["'][^>]*\/?>/gi;
+  const attrRegex =
+    /<PackageReference\s+[^>]*Include\s*=\s*["']([^"']+)["'][^>]*Version\s*=\s*["']([^"']+)["'][^>]*\/?>/gi;
 
   // Also match when Version comes before Include
-  const attrRegex2 = /<PackageReference\s+[^>]*Version\s*=\s*["']([^"']+)["'][^>]*Include\s*=\s*["']([^"']+)["'][^>]*\/?>/gi;
+  const attrRegex2 =
+    /<PackageReference\s+[^>]*Version\s*=\s*["']([^"']+)["'][^>]*Include\s*=\s*["']([^"']+)["'][^>]*\/?>/gi;
 
   // Match PackageReference with Version as child element
   // <PackageReference Include="Name">
   //   <Version>1.0.0</Version>
   // </PackageReference>
-  const elementRegex = /<PackageReference\s+[^>]*Include\s*=\s*["']([^"']+)["'][^>]*>[\s\S]*?<Version>([^<]+)<\/Version>[\s\S]*?<\/PackageReference>/gi;
+  const elementRegex =
+    /<PackageReference\s+[^>]*Include\s*=\s*["']([^"']+)["'][^>]*>[\s\S]*?<Version>([^<]+)<\/Version>[\s\S]*?<\/PackageReference>/gi;
 
   let match: RegExpExecArray | null;
 

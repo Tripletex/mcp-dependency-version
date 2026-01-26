@@ -562,55 +562,12 @@ deno task fmt
 ### Project Structure
 
 ```
-mcp-dependency-version/
-├── main.ts                          # MCP server entry point
-├── deno.json                        # Deno configuration
-├── Dockerfile                       # Docker container build
-├── .mcp.json                        # MCP server registration
-├── README.md                        # Documentation
-├── src/
-│   ├── config/                      # Configuration management
-│   │   ├── types.ts                 # Config types and defaults
-│   │   ├── loader.ts                # Config file loading
-│   │   └── index.ts                 # Module exports
-│   ├── registries/                  # Package registry clients
-│   │   ├── types.ts                 # Shared types
-│   │   ├── index.ts                 # Client factory
-│   │   ├── npm.ts                   # npm registry
-│   │   ├── maven.ts                 # Maven Central
-│   │   ├── pypi.ts                  # PyPI
-│   │   ├── cargo.ts                 # crates.io
-│   │   ├── go.ts                    # Go proxy
-│   │   ├── jsr.ts                   # JSR (jsr.io)
-│   │   ├── nuget.ts                 # NuGet
-│   │   └── docker.ts                # Docker Hub
-│   ├── parsers/                     # Dependency file parsers
-│   │   ├── types.ts                 # Parser types
-│   │   ├── index.ts                 # Parser factory
-│   │   ├── npm.ts                   # package.json
-│   │   ├── pypi.ts                  # requirements.txt
-│   │   ├── cargo.ts                 # Cargo.toml
-│   │   ├── go.ts                    # go.mod
-│   │   ├── maven.ts                 # pom.xml
-│   │   ├── gradle-groovy.ts         # build.gradle
-│   │   ├── gradle-kotlin.ts         # build.gradle.kts
-│   │   ├── deno.ts                  # deno.json
-│   │   ├── nuget.ts                 # *.csproj
-│   │   └── docker.ts                # Dockerfile, docker-compose.yml
-│   ├── tools/                       # MCP tool implementations
-│   │   ├── types.ts                 # Tool input/output types
-│   │   ├── lookup-version.ts        # lookup_version tool
-│   │   ├── list-versions.ts         # list_versions tool
-│   │   ├── check-vulnerabilities.ts # check_vulnerabilities tool
-│   │   ├── analyze-dependencies.ts  # analyze_dependencies tool
-│   │   └── get-package-docs.ts      # get_package_docs tool
-│   └── utils/
-│       ├── version.ts               # Semver utilities
-│       ├── version.test.ts          # Version tests
-│       ├── http.ts                  # HTTP utilities with auth
-│       ├── github.ts                # GitHub API utilities
-│       ├── cache.ts                 # TTL cache
-│       └── vulnerability.ts         # OSV vulnerability checking
+src/
+├── config/       # Configuration loading
+├── registries/   # Registry client implementations (npm, maven, pypi, etc.)
+├── parsers/      # Dependency file parsers (package.json, pom.xml, etc.)
+├── tools/        # MCP tool implementations
+└── utils/        # Shared utilities (version parsing, caching, HTTP)
 ```
 
 ## API Reference

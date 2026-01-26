@@ -5,19 +5,19 @@
  */
 
 import type {
+  LookupOptions,
+  PackageMetadata,
   Registry,
   RegistryClient,
-  VersionInfo,
   VersionDetail,
-  PackageMetadata,
-  LookupOptions,
+  VersionInfo,
 } from "./types.ts";
 import {
+  filterByPrefix,
+  findLatestPrerelease,
+  findLatestStable,
   isPrerelease,
   sortVersionsDescending,
-  findLatestStable,
-  findLatestPrerelease,
-  filterByPrefix,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
@@ -55,7 +55,7 @@ export class CargoClient implements RegistryClient {
 
   private async fetchCrate(
     crateName: string,
-    repositoryName?: string
+    repositoryName?: string,
   ): Promise<CratesResponse> {
     const repoConfig = getRepositoryConfig("cargo", repositoryName);
     const cacheKey = `cargo:${repoConfig.url}:${crateName}`;
@@ -72,7 +72,7 @@ export class CargoClient implements RegistryClient {
         throw new Error(`Crate '${crateName}' not found on ${repoConfig.name}`);
       }
       throw new Error(
-        `${repoConfig.name} error: ${response.status} ${response.statusText}`
+        `${repoConfig.name} error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -83,7 +83,7 @@ export class CargoClient implements RegistryClient {
 
   async lookupVersion(
     packageName: string,
-    options?: LookupOptions & { repository?: string }
+    options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
     const data = await this.fetchCrate(packageName, options?.repository);
 
@@ -97,7 +97,7 @@ export class CargoClient implements RegistryClient {
       versions = filterByPrefix(versions, options.versionPrefix);
       if (versions.length === 0) {
         throw new Error(
-          `No versions found for '${packageName}' with prefix '${options.versionPrefix}'`
+          `No versions found for '${packageName}' with prefix '${options.versionPrefix}'`,
         );
       }
     }
@@ -107,13 +107,16 @@ export class CargoClient implements RegistryClient {
 
     // Fall back to max_stable_version if available
     if (!latestStable && !options?.versionPrefix) {
-      latestStable =
-        data.crate.max_stable_version || data.crate.max_version;
+      latestStable = data.crate.max_stable_version || data.crate.max_version;
     }
 
     if (!latestStable) {
       throw new Error(
-        `No stable version found for '${packageName}'${options?.versionPrefix ? ` with prefix '${options.versionPrefix}'` : ""}`
+        `No stable version found for '${packageName}'${
+          options?.versionPrefix
+            ? ` with prefix '${options.versionPrefix}'`
+            : ""
+        }`,
       );
     }
 
@@ -143,7 +146,7 @@ export class CargoClient implements RegistryClient {
 
   async listVersions(
     packageName: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<VersionDetail[]> {
     const data = await this.fetchCrate(packageName, options?.repository);
 
@@ -159,14 +162,14 @@ export class CargoClient implements RegistryClient {
           isDeprecated: false,
           yanked: versionData?.yanked,
         };
-      }
+      },
     );
   }
 
   async getMetadata(
     packageName: string,
     version?: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<PackageMetadata> {
     const data = await this.fetchCrate(packageName, options?.repository);
 

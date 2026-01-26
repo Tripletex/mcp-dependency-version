@@ -3,7 +3,7 @@
  * Fetches README/documentation for packages from various registries
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Registry } from "../registries/types.ts";
 import { getClient, supportedRegistries } from "../registries/index.ts";
@@ -34,17 +34,21 @@ export interface GetPackageDocsResult {
 function getDocumentationUrls(
   registry: Registry,
   packageName: string,
-  version?: string
+  version?: string,
 ): { docs?: string; repository?: string } {
   switch (registry) {
     case "npm":
       return {
-        docs: `https://www.npmjs.com/package/${packageName}${version ? `/v/${version}` : ""}`,
+        docs: `https://www.npmjs.com/package/${packageName}${
+          version ? `/v/${version}` : ""
+        }`,
       };
     case "maven": {
       const [groupId, artifactId] = packageName.split(":");
       return {
-        docs: `https://javadoc.io/doc/${groupId}/${artifactId}${version ? `/${version}` : "/latest"}`,
+        docs: `https://javadoc.io/doc/${groupId}/${artifactId}${
+          version ? `/${version}` : "/latest"
+        }`,
       };
     }
     case "pypi":
@@ -57,7 +61,9 @@ function getDocumentationUrls(
       };
     case "go":
       return {
-        docs: `https://pkg.go.dev/${packageName}${version ? `@${version}` : ""}`,
+        docs: `https://pkg.go.dev/${packageName}${
+          version ? `@${version}` : ""
+        }`,
       };
     case "jsr": {
       const [scope, name] = packageName.replace(/^@/, "").split("/");
@@ -99,7 +105,7 @@ async function fetchNpmReadme(packageName: string): Promise<string | null> {
   try {
     const response = await fetchWithHeaders(
       `${repoConfig.url}/${encodedName}`,
-      { auth: repoConfig.auth }
+      { auth: repoConfig.auth },
     );
     if (response.ok) {
       const data = await response.json();
@@ -114,14 +120,16 @@ async function fetchNpmReadme(packageName: string): Promise<string | null> {
 /**
  * Fetch description from PyPI (often contains README content)
  */
-async function fetchPypiDescription(packageName: string): Promise<string | null> {
+async function fetchPypiDescription(
+  packageName: string,
+): Promise<string | null> {
   const repoConfig = getRepositoryConfig("pypi");
   const normalized = packageName.toLowerCase().replace(/[-_.]+/g, "-");
 
   try {
     const response = await fetchWithHeaders(
       `${repoConfig.url}/${normalized}/json`,
-      { auth: repoConfig.auth }
+      { auth: repoConfig.auth },
     );
     if (response.ok) {
       const data = await response.json();
@@ -143,7 +151,7 @@ async function fetchCargoReadme(packageName: string): Promise<string | null> {
   try {
     const response = await fetchWithHeaders(
       `${repoConfig.url}/${packageName}`,
-      { auth: repoConfig.auth }
+      { auth: repoConfig.auth },
     );
     if (response.ok) {
       const data = await response.json();
@@ -200,7 +208,7 @@ export function formatDocsResultAsText(result: GetPackageDocsResult): string {
  * Get package documentation (README) from a registry
  */
 export async function getPackageDocs(
-  input: GetPackageDocsInput
+  input: GetPackageDocsInput,
 ): Promise<GetPackageDocsResult> {
   const { registry, package: packageName, version } = input;
   const urls = getDocumentationUrls(registry, packageName, version);
@@ -264,7 +272,9 @@ export async function getPackageDocs(
     result.content = content || "";
     return result;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error occurred";
+    const message = error instanceof Error
+      ? error.message
+      : "Unknown error occurred";
     return {
       ...result,
       error: message,
@@ -273,14 +283,23 @@ export async function getPackageDocs(
 }
 
 const inputSchema = z.object({
-  registry: z.enum(["npm", "maven", "pypi", "cargo", "go", "jsr", "nuget", "docker"]).describe(
-    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)"
+  registry: z.enum([
+    "npm",
+    "maven",
+    "pypi",
+    "cargo",
+    "go",
+    "jsr",
+    "nuget",
+    "docker",
+  ]).describe(
+    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)",
   ),
   package: z.string().describe(
-    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)"
+    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)",
   ),
   version: z.string().optional().describe(
-    "Specific version to get documentation for (optional, defaults to latest)"
+    "Specific version to get documentation for (optional, defaults to latest)",
   ),
 });
 
@@ -326,6 +345,6 @@ Examples:
         ],
         isError: !!result.error,
       };
-    }
+    },
   );
 }

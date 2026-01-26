@@ -3,7 +3,7 @@
  * Check a package version for known vulnerabilities using OSV database
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Registry, Severity } from "../registries/types.ts";
 import {
@@ -12,11 +12,20 @@ import {
 } from "../utils/vulnerability.ts";
 
 const inputSchema = z.object({
-  registry: z.enum(["npm", "maven", "pypi", "cargo", "go", "jsr", "nuget", "docker"]).describe(
-    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)"
+  registry: z.enum([
+    "npm",
+    "maven",
+    "pypi",
+    "cargo",
+    "go",
+    "jsr",
+    "nuget",
+    "docker",
+  ]).describe(
+    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)",
   ),
   package: z.string().describe(
-    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)"
+    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)",
   ),
   version: z.string().describe("Version to check for vulnerabilities"),
   severityThreshold: z
@@ -46,7 +55,7 @@ Returns CVE IDs, severity ratings, affected version ranges, and available fixes.
           packageName,
           version,
           registry as Registry,
-          { severityThreshold: severityThreshold as Severity | undefined }
+          { severityThreshold: severityThreshold as Severity | undefined },
         );
 
         const summary = getVulnerabilitySummary(vulns);
@@ -90,6 +99,6 @@ Returns CVE IDs, severity ratings, affected version ranges, and available fixes.
           isError: true,
         };
       }
-    }
+    },
   );
 }

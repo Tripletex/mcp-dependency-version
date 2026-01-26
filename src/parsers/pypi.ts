@@ -19,7 +19,9 @@ function parse(content: string): ParsedDependency[] {
     }
 
     // Match: package==version, package>=version, package~=version, etc.
-    const match = trimmed.match(/^([a-zA-Z0-9_-]+)\s*[=~><]+\s*([0-9][^\s,;#]*)/);
+    const match = trimmed.match(
+      /^([a-zA-Z0-9_-]+)\s*[=~><]+\s*([0-9][^\s,;#]*)/,
+    );
     if (match) {
       deps.push({ name: match[1], version: match[2] });
     }

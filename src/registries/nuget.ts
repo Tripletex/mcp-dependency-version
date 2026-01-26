@@ -9,19 +9,19 @@
  */
 
 import type {
+  LookupOptions,
+  PackageMetadata,
   Registry,
   RegistryClient,
-  VersionInfo,
   VersionDetail,
-  PackageMetadata,
-  LookupOptions,
+  VersionInfo,
 } from "./types.ts";
 import {
+  filterByPrefix,
+  findLatestPrerelease,
+  findLatestStable,
   isPrerelease,
   sortVersionsDescending,
-  findLatestStable,
-  findLatestPrerelease,
-  filterByPrefix,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
@@ -62,24 +62,28 @@ export class NuGetClient implements RegistryClient {
 
   private async fetchVersions(
     packageName: string,
-    repositoryName?: string
+    repositoryName?: string,
   ): Promise<string[]> {
     const repoConfig = getRepositoryConfig("nuget", repositoryName);
-    const cacheKey = `nuget:${repoConfig.url}:versions:${packageName.toLowerCase()}`;
+    const cacheKey =
+      `nuget:${repoConfig.url}:versions:${packageName.toLowerCase()}`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as string[];
     }
 
-    const url = `${repoConfig.url}-flatcontainer/${packageName.toLowerCase()}/index.json`;
+    const url =
+      `${repoConfig.url}-flatcontainer/${packageName.toLowerCase()}/index.json`;
     const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
 
     if (!response.ok) {
       if (response.status === 404) {
-        throw new Error(`Package '${packageName}' not found on ${repoConfig.name}`);
+        throw new Error(
+          `Package '${packageName}' not found on ${repoConfig.name}`,
+        );
       }
       throw new Error(
-        `${repoConfig.name} error: ${response.status} ${response.statusText}`
+        `${repoConfig.name} error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -90,7 +94,7 @@ export class NuGetClient implements RegistryClient {
 
   private async fetchRegistration(
     packageName: string,
-    repositoryName?: string
+    repositoryName?: string,
   ): Promise<NuGetRegistrationResponse> {
     const repoConfig = getRepositoryConfig("nuget", repositoryName);
     const cacheKey = `nuget:${repoConfig.url}:reg:${packageName.toLowerCase()}`;
@@ -99,7 +103,8 @@ export class NuGetClient implements RegistryClient {
       return cached as NuGetRegistrationResponse;
     }
 
-    const url = `${repoConfig.url}/registration5-gz-semver2/${packageName.toLowerCase()}/index.json`;
+    const url =
+      `${repoConfig.url}/registration5-gz-semver2/${packageName.toLowerCase()}/index.json`;
     const response = await fetchWithHeaders(url, {
       auth: repoConfig.auth,
       headers: {
@@ -109,10 +114,12 @@ export class NuGetClient implements RegistryClient {
 
     if (!response.ok) {
       if (response.status === 404) {
-        throw new Error(`Package '${packageName}' not found on ${repoConfig.name}`);
+        throw new Error(
+          `Package '${packageName}' not found on ${repoConfig.name}`,
+        );
       }
       throw new Error(
-        `${repoConfig.name} error: ${response.status} ${response.statusText}`
+        `${repoConfig.name} error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -121,7 +128,9 @@ export class NuGetClient implements RegistryClient {
     return data;
   }
 
-  private getCatalogEntries(registration: NuGetRegistrationResponse): Map<string, NuGetCatalogEntry> {
+  private getCatalogEntries(
+    registration: NuGetRegistrationResponse,
+  ): Map<string, NuGetCatalogEntry> {
     const entries = new Map<string, NuGetCatalogEntry>();
     for (const page of registration.items) {
       if (page.items) {
@@ -135,7 +144,7 @@ export class NuGetClient implements RegistryClient {
 
   async lookupVersion(
     packageName: string,
-    options?: LookupOptions & { repository?: string }
+    options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
     let versions = await this.fetchVersions(packageName, options?.repository);
 
@@ -149,7 +158,11 @@ export class NuGetClient implements RegistryClient {
 
     if (!latestStable) {
       throw new Error(
-        `No stable version found for '${packageName}'${options?.versionPrefix ? ` with prefix '${options.versionPrefix}'` : ""}`
+        `No stable version found for '${packageName}'${
+          options?.versionPrefix
+            ? ` with prefix '${options.versionPrefix}'`
+            : ""
+        }`,
       );
     }
 
@@ -159,7 +172,10 @@ export class NuGetClient implements RegistryClient {
     let deprecationMessage: string | undefined;
 
     try {
-      const registration = await this.fetchRegistration(packageName, options?.repository);
+      const registration = await this.fetchRegistration(
+        packageName,
+        options?.repository,
+      );
       const entries = this.getCatalogEntries(registration);
       const entry = entries.get(latestStable);
       if (entry) {
@@ -199,14 +215,17 @@ export class NuGetClient implements RegistryClient {
 
   async listVersions(
     packageName: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<VersionDetail[]> {
     const versions = await this.fetchVersions(packageName, options?.repository);
 
     // Try to get metadata from registration
     let entries = new Map<string, NuGetCatalogEntry>();
     try {
-      const registration = await this.fetchRegistration(packageName, options?.repository);
+      const registration = await this.fetchRegistration(
+        packageName,
+        options?.repository,
+      );
       entries = this.getCatalogEntries(registration);
     } catch {
       // Continue without detailed metadata
@@ -226,9 +245,12 @@ export class NuGetClient implements RegistryClient {
   async getMetadata(
     packageName: string,
     version?: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<PackageMetadata> {
-    const registration = await this.fetchRegistration(packageName, options?.repository);
+    const registration = await this.fetchRegistration(
+      packageName,
+      options?.repository,
+    );
     const entries = this.getCatalogEntries(registration);
 
     // Get specific version or latest
@@ -236,7 +258,10 @@ export class NuGetClient implements RegistryClient {
     if (version) {
       entry = entries.get(version);
     } else {
-      const versions = await this.fetchVersions(packageName, options?.repository);
+      const versions = await this.fetchVersions(
+        packageName,
+        options?.repository,
+      );
       const latestStable = findLatestStable(versions);
       if (latestStable) {
         entry = entries.get(latestStable);

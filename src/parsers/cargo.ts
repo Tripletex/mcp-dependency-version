@@ -25,7 +25,7 @@ function parse(content: string): ParsedDependency[] {
       }
 
       const complexMatch = line.match(
-        /^([a-zA-Z0-9_-]+)\s*=\s*\{.*version\s*=\s*"([^"]+)"/
+        /^([a-zA-Z0-9_-]+)\s*=\s*\{.*version\s*=\s*"([^"]+)"/,
       );
       if (complexMatch) {
         deps.push({ name: complexMatch[1], version: complexMatch[2] });

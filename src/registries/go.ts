@@ -5,19 +5,19 @@
  */
 
 import type {
+  LookupOptions,
+  PackageMetadata,
   Registry,
   RegistryClient,
-  VersionInfo,
   VersionDetail,
-  PackageMetadata,
-  LookupOptions,
+  VersionInfo,
 } from "./types.ts";
 import {
+  filterByPrefix,
+  findLatestPrerelease,
+  findLatestStable,
   isPrerelease,
   sortVersionsDescending,
-  findLatestStable,
-  findLatestPrerelease,
-  filterByPrefix,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
@@ -41,7 +41,7 @@ export class GoClient implements RegistryClient {
 
   private async fetchVersionList(
     modulePath: string,
-    repositoryName?: string
+    repositoryName?: string,
   ): Promise<string[]> {
     const repoConfig = getRepositoryConfig("go", repositoryName);
     const cacheKey = `go:${repoConfig.url}:versions:${modulePath}`;
@@ -56,10 +56,12 @@ export class GoClient implements RegistryClient {
 
     if (!response.ok) {
       if (response.status === 404 || response.status === 410) {
-        throw new Error(`Module '${modulePath}' not found on ${repoConfig.name}`);
+        throw new Error(
+          `Module '${modulePath}' not found on ${repoConfig.name}`,
+        );
       }
       throw new Error(
-        `${repoConfig.name} error: ${response.status} ${response.statusText}`
+        `${repoConfig.name} error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -76,7 +78,7 @@ export class GoClient implements RegistryClient {
   private async fetchVersionInfo(
     modulePath: string,
     version: string,
-    repositoryName?: string
+    repositoryName?: string,
   ): Promise<GoModInfo> {
     const repoConfig = getRepositoryConfig("go", repositoryName);
     const cacheKey = `go:${repoConfig.url}:info:${modulePath}:${version}`;
@@ -91,7 +93,7 @@ export class GoClient implements RegistryClient {
 
     if (!response.ok) {
       throw new Error(
-        `${repoConfig.name} error: ${response.status} ${response.statusText}`
+        `${repoConfig.name} error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -102,16 +104,19 @@ export class GoClient implements RegistryClient {
 
   async lookupVersion(
     packageName: string,
-    options?: LookupOptions & { repository?: string }
+    options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
-    let versions = await this.fetchVersionList(packageName, options?.repository);
+    let versions = await this.fetchVersionList(
+      packageName,
+      options?.repository,
+    );
 
     // Apply version prefix filter if specified
     if (options?.versionPrefix) {
       versions = filterByPrefix(versions, options.versionPrefix);
       if (versions.length === 0) {
         throw new Error(
-          `No versions found for '${packageName}' with prefix '${options.versionPrefix}'`
+          `No versions found for '${packageName}' with prefix '${options.versionPrefix}'`,
         );
       }
     }
@@ -121,14 +126,22 @@ export class GoClient implements RegistryClient {
 
     if (!latestStable) {
       throw new Error(
-        `No stable version found for '${packageName}'${options?.versionPrefix ? ` with prefix '${options.versionPrefix}'` : ""}`
+        `No stable version found for '${packageName}'${
+          options?.versionPrefix
+            ? ` with prefix '${options.versionPrefix}'`
+            : ""
+        }`,
       );
     }
 
     // Fetch version info to get timestamp
     let publishedAt: Date | undefined;
     try {
-      const info = await this.fetchVersionInfo(packageName, latestStable, options?.repository);
+      const info = await this.fetchVersionInfo(
+        packageName,
+        latestStable,
+        options?.repository,
+      );
       publishedAt = new Date(info.Time);
     } catch {
       // Ignore errors fetching version info
@@ -157,15 +170,22 @@ export class GoClient implements RegistryClient {
 
   async listVersions(
     packageName: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<VersionDetail[]> {
-    const versions = await this.fetchVersionList(packageName, options?.repository);
+    const versions = await this.fetchVersionList(
+      packageName,
+      options?.repository,
+    );
 
     const details: VersionDetail[] = [];
     for (const version of sortVersionsDescending(versions)) {
       let publishedAt: Date | undefined;
       try {
-        const info = await this.fetchVersionInfo(packageName, version, options?.repository);
+        const info = await this.fetchVersionInfo(
+          packageName,
+          version,
+          options?.repository,
+        );
         publishedAt = new Date(info.Time);
       } catch {
         // Ignore errors fetching version info
@@ -182,21 +202,21 @@ export class GoClient implements RegistryClient {
     return details;
   }
 
-  async getMetadata(
+  getMetadata(
     packageName: string,
     _version?: string,
-    _options?: { repository?: string }
+    _options?: { repository?: string },
   ): Promise<PackageMetadata> {
     // Go proxy doesn't provide metadata - just return basic info
     // Full metadata would require fetching from pkg.go.dev or parsing go.mod
-    return {
+    return Promise.resolve({
       name: packageName,
       registry: "go",
       homepage: `https://pkg.go.dev/${packageName}`,
       repository: packageName.startsWith("github.com")
         ? `https://${packageName}`
         : undefined,
-    };
+    });
   }
 }
 

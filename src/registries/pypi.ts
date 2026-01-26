@@ -5,19 +5,19 @@
  */
 
 import type {
+  LookupOptions,
+  PackageMetadata,
   Registry,
   RegistryClient,
-  VersionInfo,
   VersionDetail,
-  PackageMetadata,
-  LookupOptions,
+  VersionInfo,
 } from "./types.ts";
 import {
+  filterByPrefix,
+  findLatestPrerelease,
+  findLatestStable,
   isPrerelease,
   sortVersionsDescending,
-  findLatestStable,
-  findLatestPrerelease,
-  filterByPrefix,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
@@ -58,7 +58,7 @@ export class PyPIClient implements RegistryClient {
 
   private async fetchPackage(
     packageName: string,
-    repositoryName?: string
+    repositoryName?: string,
   ): Promise<PyPIResponse> {
     const repoConfig = getRepositoryConfig("pypi", repositoryName);
     const normalized = this.normalizePackageName(packageName);
@@ -73,10 +73,12 @@ export class PyPIClient implements RegistryClient {
 
     if (!response.ok) {
       if (response.status === 404) {
-        throw new Error(`Package '${packageName}' not found on ${repoConfig.name}`);
+        throw new Error(
+          `Package '${packageName}' not found on ${repoConfig.name}`,
+        );
       }
       throw new Error(
-        `${repoConfig.name} error: ${response.status} ${response.statusText}`
+        `${repoConfig.name} error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -103,7 +105,7 @@ export class PyPIClient implements RegistryClient {
 
   async lookupVersion(
     packageName: string,
-    options?: LookupOptions & { repository?: string }
+    options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
     const data = await this.fetchPackage(packageName, options?.repository);
     let versions = Object.keys(data.releases).filter((v) => {
@@ -119,7 +121,7 @@ export class PyPIClient implements RegistryClient {
 
     // Find latest stable version
     const stableVersions = versions.filter(
-      (v) => !this.isPythonPrerelease(v)
+      (v) => !this.isPythonPrerelease(v),
     );
     let latestStable = findLatestStable(stableVersions);
 
@@ -130,7 +132,11 @@ export class PyPIClient implements RegistryClient {
 
     if (!latestStable) {
       throw new Error(
-        `No stable version found for '${packageName}'${options?.versionPrefix ? ` with prefix '${options.versionPrefix}'` : ""}`
+        `No stable version found for '${packageName}'${
+          options?.versionPrefix
+            ? ` with prefix '${options.versionPrefix}'`
+            : ""
+        }`,
       );
     }
 
@@ -163,7 +169,7 @@ export class PyPIClient implements RegistryClient {
 
   async listVersions(
     packageName: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<VersionDetail[]> {
     const data = await this.fetchPackage(packageName, options?.repository);
     const versions = Object.keys(data.releases);
@@ -186,15 +192,14 @@ export class PyPIClient implements RegistryClient {
   async getMetadata(
     packageName: string,
     _version?: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<PackageMetadata> {
     const data = await this.fetchPackage(packageName, options?.repository);
 
     // Try to find repository URL from project_urls
     let repository: string | undefined;
     if (data.info.project_urls) {
-      repository =
-        data.info.project_urls["Source"] ||
+      repository = data.info.project_urls["Source"] ||
         data.info.project_urls["Repository"] ||
         data.info.project_urls["GitHub"] ||
         data.info.project_urls["Code"];

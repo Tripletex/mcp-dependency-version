@@ -3,10 +3,10 @@
  */
 
 import type {
+  DependencyInfo,
   Registry,
   Severity,
   Vulnerability,
-  DependencyInfo,
 } from "../registries/types.ts";
 
 // === lookup_version ===

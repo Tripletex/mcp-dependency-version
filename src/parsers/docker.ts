@@ -76,7 +76,7 @@ function parseDockerfile(content: string): ParsedDependency[] {
     // Match FROM statements
     // FROM [--platform=...] image[:tag|@digest] [AS name]
     const fromMatch = trimmed.match(
-      /^FROM\s+(?:--platform=[^\s]+\s+)?([^\s]+)(?:\s+AS\s+\w+)?$/i
+      /^FROM\s+(?:--platform=[^\s]+\s+)?([^\s]+)(?:\s+AS\s+\w+)?$/i,
     );
 
     if (fromMatch) {
@@ -84,7 +84,11 @@ function parseDockerfile(content: string): ParsedDependency[] {
       const parsed = parseImageReference(imageRef);
       if (parsed) {
         // Avoid duplicates
-        if (!deps.some((d) => d.name === parsed.name && d.version === parsed.version)) {
+        if (
+          !deps.some((d) =>
+            d.name === parsed.name && d.version === parsed.version
+          )
+        ) {
           deps.push(parsed);
         }
       }
@@ -119,7 +123,11 @@ function parseDockerCompose(content: string): ParsedDependency[] {
       const parsed = parseImageReference(imageRef);
       if (parsed) {
         // Avoid duplicates
-        if (!deps.some((d) => d.name === parsed.name && d.version === parsed.version)) {
+        if (
+          !deps.some((d) =>
+            d.name === parsed.name && d.version === parsed.version
+          )
+        ) {
           deps.push(parsed);
         }
       }

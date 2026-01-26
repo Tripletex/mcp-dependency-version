@@ -12,7 +12,9 @@ function parse(content: string): ParsedDependency[] {
     const pkg = JSON.parse(content);
     const deps: ParsedDependency[] = [];
 
-    for (const depType of ["dependencies", "devDependencies", "peerDependencies"]) {
+    for (
+      const depType of ["dependencies", "devDependencies", "peerDependencies"]
+    ) {
       const section = pkg[depType];
       if (section && typeof section === "object") {
         for (const [name, version] of Object.entries(section)) {
