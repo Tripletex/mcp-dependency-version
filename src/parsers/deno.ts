@@ -72,7 +72,7 @@ function stripJsonComments(content: string): string {
  *   jsr:@oak/oak@17 -> { registry: "jsr", name: "@oak/oak", version: "17" }
  */
 function parseImportSpecifier(
-  specifier: string
+  specifier: string,
 ): { registry: "jsr" | "npm"; name: string; version: string } | null {
   // Skip URL imports
   if (specifier.startsWith("http://") || specifier.startsWith("https://")) {
@@ -129,7 +129,9 @@ function parse(content: string): ParsedDependency[] {
 
       // For npm: packages, prefix the name to indicate registry routing
       // For jsr: packages, use the name as-is
-      const name = parsed.registry === "npm" ? `npm:${parsed.name}` : parsed.name;
+      const name = parsed.registry === "npm"
+        ? `npm:${parsed.name}`
+        : parsed.name;
 
       deps.push({
         name,

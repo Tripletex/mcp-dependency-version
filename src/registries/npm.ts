@@ -5,19 +5,19 @@
  */
 
 import type {
+  LookupOptions,
+  PackageMetadata,
   Registry,
   RegistryClient,
-  VersionInfo,
   VersionDetail,
-  PackageMetadata,
-  LookupOptions,
+  VersionInfo,
 } from "./types.ts";
 import {
+  filterByPrefix,
+  findLatestPrerelease,
+  findLatestStable,
   isPrerelease,
   sortVersionsDescending,
-  findLatestStable,
-  findLatestPrerelease,
-  filterByPrefix,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
@@ -57,7 +57,7 @@ export class NpmClient implements RegistryClient {
 
   private async fetchPackage(
     packageName: string,
-    repositoryName?: string
+    repositoryName?: string,
   ): Promise<NpmPackageResponse> {
     const repoConfig = getRepositoryConfig("npm", repositoryName);
     const cacheKey = `npm:${repoConfig.url}:${packageName}`;
@@ -72,10 +72,12 @@ export class NpmClient implements RegistryClient {
 
     if (!response.ok) {
       if (response.status === 404) {
-        throw new Error(`Package '${packageName}' not found on ${repoConfig.name}`);
+        throw new Error(
+          `Package '${packageName}' not found on ${repoConfig.name}`,
+        );
       }
       throw new Error(
-        `${repoConfig.name} error: ${response.status} ${response.statusText}`
+        `${repoConfig.name} error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -86,7 +88,7 @@ export class NpmClient implements RegistryClient {
 
   async lookupVersion(
     packageName: string,
-    options?: LookupOptions & { repository?: string }
+    options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
     const data = await this.fetchPackage(packageName, options?.repository);
     let versions = Object.keys(data.versions);
@@ -106,7 +108,11 @@ export class NpmClient implements RegistryClient {
 
     if (!latestStable) {
       throw new Error(
-        `No stable version found for '${packageName}'${options?.versionPrefix ? ` with prefix '${options.versionPrefix}'` : ""}`
+        `No stable version found for '${packageName}'${
+          options?.versionPrefix
+            ? ` with prefix '${options.versionPrefix}'`
+            : ""
+        }`,
       );
     }
 
@@ -138,7 +144,7 @@ export class NpmClient implements RegistryClient {
 
   async listVersions(
     packageName: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<VersionDetail[]> {
     const data = await this.fetchPackage(packageName, options?.repository);
     const versions = Object.keys(data.versions);
@@ -159,7 +165,7 @@ export class NpmClient implements RegistryClient {
   async getMetadata(
     packageName: string,
     version?: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<PackageMetadata> {
     const data = await this.fetchPackage(packageName, options?.repository);
 
@@ -175,8 +181,7 @@ export class NpmClient implements RegistryClient {
     }
 
     const license = versionData?.license ?? data.license;
-    const licenseStr =
-      typeof license === "string" ? license : license?.type;
+    const licenseStr = typeof license === "string" ? license : license?.type;
 
     return {
       name: packageName,

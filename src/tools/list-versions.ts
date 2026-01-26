@@ -3,7 +3,7 @@
  * List all available versions of a package
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getClient, supportedRegistries } from "../registries/index.ts";
 import type { Registry } from "../registries/types.ts";

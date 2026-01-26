@@ -16,9 +16,9 @@ const configurations = [
   "annotationProcessor",
   "kapt",
   "ksp",
-  "compile",        // deprecated but still used
-  "testCompile",    // deprecated but still used
-  "runtime",        // deprecated but still used
+  "compile", // deprecated but still used
+  "testCompile", // deprecated but still used
+  "runtime", // deprecated but still used
 ];
 
 /**
@@ -32,7 +32,7 @@ function parse(content: string): ParsedDependency[] {
   // Handles both single and double quotes
   const stringNotationRegex = new RegExp(
     `(?:${configPattern})\\s*[("']([a-zA-Z0-9._-]+):([a-zA-Z0-9._-]+):([^'"\\s:]+)[)'"]`,
-    "g"
+    "g",
   );
 
   let match;
@@ -47,7 +47,7 @@ function parse(content: string): ParsedDependency[] {
   // Pattern 2: Map notation - implementation group: 'com.example', name: 'lib', version: '1.0'
   const mapNotationRegex = new RegExp(
     `(?:${configPattern})\\s+group:\\s*['"]([^'"]+)['"]\\s*,\\s*name:\\s*['"]([^'"]+)['"]\\s*,\\s*version:\\s*['"]([^'"]+)['"]`,
-    "g"
+    "g",
   );
 
   while ((match = mapNotationRegex.exec(content)) !== null) {

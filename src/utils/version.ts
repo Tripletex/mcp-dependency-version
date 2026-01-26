@@ -20,7 +20,7 @@ export function parseVersion(version: string): ParsedVersion | null {
 
   // Match semver pattern: major.minor.patch[-prerelease][+build]
   const match = normalized.match(
-    /^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([a-zA-Z0-9.-]+))?(?:\+([a-zA-Z0-9.-]+))?$/
+    /^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([a-zA-Z0-9.-]+))?(?:\+([a-zA-Z0-9.-]+))?$/,
   );
 
   if (!match) {
@@ -175,7 +175,7 @@ export function filterByPrefix(versions: string[], prefix: string): string[] {
  */
 export function getUpdateType(
   currentVersion: string,
-  newVersion: string
+  newVersion: string,
 ): "major" | "minor" | "patch" | "prerelease" | "none" {
   const current = parseVersion(currentVersion);
   const next = parseVersion(newVersion);
@@ -210,7 +210,7 @@ export function getUpdateType(
  */
 export function satisfiesConstraint(
   version: string,
-  constraint: string
+  constraint: string,
 ): boolean {
   const parsed = parseVersion(version);
   if (!parsed) return false;

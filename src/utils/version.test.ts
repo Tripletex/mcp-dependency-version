@@ -1,14 +1,14 @@
-import { assertEquals, assert } from "jsr:@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
-  parseVersion,
-  isPrerelease,
   compareVersions,
-  sortVersionsDescending,
-  findLatestStable,
-  findLatestPrerelease,
   filterByPrefix,
+  findLatestPrerelease,
+  findLatestStable,
   getUpdateType,
+  isPrerelease,
+  parseVersion,
   satisfiesConstraint,
+  sortVersionsDescending,
 } from "./version.ts";
 
 Deno.test("parseVersion - parses basic semver", () => {

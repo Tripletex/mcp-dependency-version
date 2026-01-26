@@ -69,8 +69,10 @@ function parseMavenDependencies(content: string): ParsedDependency[] {
 
   // Check for Groovy DSL (build.gradle patterns)
   // Groovy can use: implementation 'group:artifact:version' or implementation "..."
-  if (/(?:implementation|api|testImplementation|compile)\s+['"]/.test(content) ||
-      /(?:implementation|api|testImplementation)\s+group:/.test(content)) {
+  if (
+    /(?:implementation|api|testImplementation|compile)\s+['"]/.test(content) ||
+    /(?:implementation|api|testImplementation)\s+group:/.test(content)
+  ) {
     return gradleGroovyParser.parse(content);
   }
 
@@ -82,7 +84,10 @@ function parseMavenDependencies(content: string): ParsedDependency[] {
  * Parse dependencies from file content based on registry
  * For maven registry, auto-detects between pom.xml, build.gradle, and build.gradle.kts
  */
-export function parseDependencies(content: string, registry: Registry): ParsedDependency[] {
+export function parseDependencies(
+  content: string,
+  registry: Registry,
+): ParsedDependency[] {
   switch (registry) {
     case "npm":
       return npmParser.parse(content);

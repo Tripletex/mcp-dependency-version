@@ -11,7 +11,8 @@ function parse(content: string): ParsedDependency[] {
   const deps: ParsedDependency[] = [];
 
   // Match dependency blocks - handle various whitespace patterns
-  const depRegex = /<dependency>[\s\S]*?<groupId>([^<]+)<\/groupId>[\s\S]*?<artifactId>([^<]+)<\/artifactId>[\s\S]*?<version>([^<]+)<\/version>[\s\S]*?<\/dependency>/g;
+  const depRegex =
+    /<dependency>[\s\S]*?<groupId>([^<]+)<\/groupId>[\s\S]*?<artifactId>([^<]+)<\/artifactId>[\s\S]*?<version>([^<]+)<\/version>[\s\S]*?<\/dependency>/g;
 
   let match;
   while ((match = depRegex.exec(content)) !== null) {

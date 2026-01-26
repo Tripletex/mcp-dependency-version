@@ -5,24 +5,23 @@
  */
 
 import type {
+  LookupOptions,
+  PackageMetadata,
   Registry,
   RegistryClient,
-  VersionInfo,
   VersionDetail,
-  PackageMetadata,
-  LookupOptions,
+  VersionInfo,
 } from "./types.ts";
 import {
+  filterByPrefix,
+  findLatestPrerelease,
+  findLatestStable,
   isPrerelease,
   sortVersionsDescending,
-  findLatestStable,
-  findLatestPrerelease,
-  filterByPrefix,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
 import { getRepositoryConfig } from "../config/loader.ts";
-import type { RepositoryAuth } from "../config/types.ts";
 
 /**
  * Parsed maven-metadata.xml content
@@ -71,11 +70,13 @@ function parseMavenMetadata(xml: string): MavenMetadata {
 export class MavenClient implements RegistryClient {
   readonly registry = "maven" as const satisfies Registry;
 
-  private parsePackageName(name: string): { groupId: string; artifactId: string } {
+  private parsePackageName(
+    name: string,
+  ): { groupId: string; artifactId: string } {
     const parts = name.split(":");
     if (parts.length !== 2) {
       throw new Error(
-        `Invalid Maven package name '${name}'. Expected format: groupId:artifactId`
+        `Invalid Maven package name '${name}'. Expected format: groupId:artifactId`,
       );
     }
     return { groupId: parts[0], artifactId: parts[1] };
@@ -92,27 +93,29 @@ export class MavenClient implements RegistryClient {
   private async fetchMetadata(
     groupId: string,
     artifactId: string,
-    repositoryName?: string
+    repositoryName?: string,
   ): Promise<MavenMetadata> {
     const repoConfig = getRepositoryConfig("maven", repositoryName);
-    const cacheKey = `maven:${repoConfig.url}:metadata:${groupId}:${artifactId}`;
+    const cacheKey =
+      `maven:${repoConfig.url}:metadata:${groupId}:${artifactId}`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as MavenMetadata;
     }
 
     const groupPath = this.groupIdToPath(groupId);
-    const url = `${repoConfig.url}/${groupPath}/${artifactId}/maven-metadata.xml`;
+    const url =
+      `${repoConfig.url}/${groupPath}/${artifactId}/maven-metadata.xml`;
 
     const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
     if (!response.ok) {
       if (response.status === 404) {
         throw new Error(
-          `Package '${groupId}:${artifactId}' not found on ${repoConfig.name}`
+          `Package '${groupId}:${artifactId}' not found on ${repoConfig.name}`,
         );
       }
       throw new Error(
-        `${repoConfig.name} error: ${response.status} ${response.statusText}`
+        `${repoConfig.name} error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -125,14 +128,18 @@ export class MavenClient implements RegistryClient {
 
   async lookupVersion(
     packageName: string,
-    options?: LookupOptions & { repository?: string }
+    options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
     const { groupId, artifactId } = this.parsePackageName(packageName);
-    const metadata = await this.fetchMetadata(groupId, artifactId, options?.repository);
+    const metadata = await this.fetchMetadata(
+      groupId,
+      artifactId,
+      options?.repository,
+    );
 
     if (metadata.versions.length === 0) {
       throw new Error(
-        `Package '${packageName}' not found on Maven Central`
+        `Package '${packageName}' not found on Maven Central`,
       );
     }
 
@@ -143,7 +150,7 @@ export class MavenClient implements RegistryClient {
       versionStrings = filterByPrefix(versionStrings, options.versionPrefix);
       if (versionStrings.length === 0) {
         throw new Error(
-          `No versions found for '${packageName}' with prefix '${options.versionPrefix}'`
+          `No versions found for '${packageName}' with prefix '${options.versionPrefix}'`,
         );
       }
     }
@@ -152,7 +159,11 @@ export class MavenClient implements RegistryClient {
 
     if (!latestStable) {
       throw new Error(
-        `No stable version found for '${packageName}'${options?.versionPrefix ? ` with prefix '${options.versionPrefix}'` : ""}`
+        `No stable version found for '${packageName}'${
+          options?.versionPrefix
+            ? ` with prefix '${options.versionPrefix}'`
+            : ""
+        }`,
       );
     }
 
@@ -178,10 +189,14 @@ export class MavenClient implements RegistryClient {
 
   async listVersions(
     packageName: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<VersionDetail[]> {
     const { groupId, artifactId } = this.parsePackageName(packageName);
-    const metadata = await this.fetchMetadata(groupId, artifactId, options?.repository);
+    const metadata = await this.fetchMetadata(
+      groupId,
+      artifactId,
+      options?.repository,
+    );
 
     return sortVersionsDescending(metadata.versions).map((version) => ({
       version,
@@ -197,14 +212,17 @@ export class MavenClient implements RegistryClient {
     groupId: string,
     artifactId: string,
     version: string,
-    repositoryName?: string
+    repositoryName?: string,
   ): Promise<string | undefined> {
     const repoConfig = getRepositoryConfig("maven", repositoryName);
     const groupPath = this.groupIdToPath(groupId);
-    const pomUrl = `${repoConfig.url}/${groupPath}/${artifactId}/${version}/${artifactId}-${version}.pom`;
+    const pomUrl =
+      `${repoConfig.url}/${groupPath}/${artifactId}/${version}/${artifactId}-${version}.pom`;
 
     try {
-      const response = await fetchWithHeaders(pomUrl, { auth: repoConfig.auth });
+      const response = await fetchWithHeaders(pomUrl, {
+        auth: repoConfig.auth,
+      });
       if (!response.ok) {
         return undefined;
       }
@@ -213,12 +231,16 @@ export class MavenClient implements RegistryClient {
 
       // Extract SCM URL from POM
       // Try <scm><url> first, then <scm><connection>
-      const scmUrlMatch = pom.match(/<scm>[\s\S]*?<url>([^<]+)<\/url>[\s\S]*?<\/scm>/);
+      const scmUrlMatch = pom.match(
+        /<scm>[\s\S]*?<url>([^<]+)<\/url>[\s\S]*?<\/scm>/,
+      );
       if (scmUrlMatch) {
         return scmUrlMatch[1].trim();
       }
 
-      const scmConnMatch = pom.match(/<scm>[\s\S]*?<connection>([^<]+)<\/connection>[\s\S]*?<\/scm>/);
+      const scmConnMatch = pom.match(
+        /<scm>[\s\S]*?<connection>([^<]+)<\/connection>[\s\S]*?<\/scm>/,
+      );
       if (scmConnMatch) {
         // Convert scm:git:... format to URL
         const conn = scmConnMatch[1].trim();
@@ -243,18 +265,28 @@ export class MavenClient implements RegistryClient {
   async getMetadata(
     packageName: string,
     version?: string,
-    options?: { repository?: string }
+    options?: { repository?: string },
   ): Promise<PackageMetadata> {
     const { groupId, artifactId } = this.parsePackageName(packageName);
-    const metadata = await this.fetchMetadata(groupId, artifactId, options?.repository);
+    const metadata = await this.fetchMetadata(
+      groupId,
+      artifactId,
+      options?.repository,
+    );
 
     // Get version to fetch POM from
-    const targetVersion = version || metadata.releaseVersion || metadata.latestVersion;
+    const targetVersion = version || metadata.releaseVersion ||
+      metadata.latestVersion;
 
     // Try to get source repository from POM
     let sourceRepo: string | undefined;
     if (targetVersion) {
-      sourceRepo = await this.fetchScmUrl(groupId, artifactId, targetVersion, options?.repository);
+      sourceRepo = await this.fetchScmUrl(
+        groupId,
+        artifactId,
+        targetVersion,
+        options?.repository,
+      );
     }
 
     return {
@@ -262,7 +294,8 @@ export class MavenClient implements RegistryClient {
       registry: "maven",
       repository: sourceRepo,
       // homepage links to Maven Central for browsing
-      homepage: `https://central.sonatype.com/artifact/${groupId}/${artifactId}`,
+      homepage:
+        `https://central.sonatype.com/artifact/${groupId}/${artifactId}`,
     };
   }
 }

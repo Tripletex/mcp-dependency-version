@@ -3,7 +3,7 @@
  * Analyze a dependency file and check for updates/vulnerabilities
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getClient, getJsrPackageClient } from "../registries/index.ts";
 import type { Registry } from "../registries/types.ts";
@@ -13,13 +13,22 @@ import { checkVulnerabilities } from "../utils/vulnerability.ts";
 
 const inputSchema = z.object({
   content: z.string().describe(
-    "File content (package.json, pom.xml, build.gradle, build.gradle.kts, requirements.txt, Cargo.toml, go.mod, deno.json, *.csproj, Dockerfile, docker-compose.yml)"
+    "File content (package.json, pom.xml, build.gradle, build.gradle.kts, requirements.txt, Cargo.toml, go.mod, deno.json, *.csproj, Dockerfile, docker-compose.yml)",
   ),
-  registry: z.enum(["npm", "maven", "pypi", "cargo", "go", "jsr", "nuget", "docker"]).describe(
-    "Package registry to use. For Gradle files (build.gradle, build.gradle.kts), use 'maven'"
+  registry: z.enum([
+    "npm",
+    "maven",
+    "pypi",
+    "cargo",
+    "go",
+    "jsr",
+    "nuget",
+    "docker",
+  ]).describe(
+    "Package registry to use. For Gradle files (build.gradle, build.gradle.kts), use 'maven'",
   ),
   checkVulnerabilities: z.boolean().optional().default(false).describe(
-    "Also scan for vulnerabilities (slower)"
+    "Also scan for vulnerabilities (slower)",
   ),
 });
 
@@ -74,7 +83,7 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
                     },
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -89,7 +98,11 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
           updateAvailable: boolean;
           updateType: string;
           deprecated?: boolean;
-          vulnerabilities?: { id: string; summary?: string; severity?: string }[];
+          vulnerabilities?: {
+            id: string;
+            summary?: string;
+            severity?: string;
+          }[];
         }[] = [];
 
         const summary = {
@@ -127,7 +140,7 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
                 const versionInfo = await client.lookupVersion(lookupName);
                 const updateType = getUpdateType(
                   dep.version,
-                  versionInfo.latestStable
+                  versionInfo.latestStable,
                 );
                 const updateAvailable = updateType !== "none";
 
@@ -144,7 +157,7 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
                   const vulns = await checkVulnerabilities(
                     lookupName,
                     dep.version,
-                    vulnRegistry
+                    vulnRegistry,
                   );
                   result.vulnerabilities = vulns.map((v) => ({
                     id: v.id,
@@ -163,7 +176,7 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
                   updateType: "unknown",
                 };
               }
-            })
+            }),
           );
 
           results.push(...batchResults);
@@ -209,6 +222,6 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
           isError: true,
         };
       }
-    }
+    },
   );
 }

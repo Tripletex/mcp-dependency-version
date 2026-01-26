@@ -28,7 +28,7 @@ function expandPath(path: string): string {
  */
 function getConfigPath(): string {
   return expandPath(
-    Deno.env.get("MCP_DEPENDENCY_VERSION_CONFIG") || DEFAULT_CONFIG_PATH
+    Deno.env.get("MCP_DEPENDENCY_VERSION_CONFIG") || DEFAULT_CONFIG_PATH,
   );
 }
 
@@ -68,7 +68,10 @@ export async function loadConfig(): Promise<Config> {
     userConfig = JSON.parse(content) as Partial<Config>;
   } catch (error) {
     if (!(error instanceof Deno.errors.NotFound)) {
-      console.error(`Warning: Failed to load config from ${configPath}:`, error);
+      console.error(
+        `Warning: Failed to load config from ${configPath}:`,
+        error,
+      );
     }
     // Use defaults if no config file exists
   }
@@ -94,7 +97,10 @@ export function loadConfigSync(): Config {
     userConfig = JSON.parse(content) as Partial<Config>;
   } catch (error) {
     if (!(error instanceof Deno.errors.NotFound)) {
-      console.error(`Warning: Failed to load config from ${configPath}:`, error);
+      console.error(
+        `Warning: Failed to load config from ${configPath}:`,
+        error,
+      );
     }
   }
 
@@ -109,7 +115,7 @@ export function loadConfigSync(): Config {
  */
 export function getRepositoryConfig(
   registry: Registry,
-  repository?: string
+  repository?: string,
 ): RepositoryConfig {
   const config = loadConfigSync();
   const repos = config.repositories[registry];
@@ -123,7 +129,7 @@ export function getRepositoryConfig(
     if (!repo) {
       const available = Object.keys(repos).join(", ");
       throw new Error(
-        `Repository '${repository}' not found for ${registry}. Available: ${available}`
+        `Repository '${repository}' not found for ${registry}. Available: ${available}`,
       );
     }
     return repo;

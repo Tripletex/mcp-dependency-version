@@ -102,7 +102,7 @@ export class Cache<T> {
   async getOrSet(
     key: string,
     compute: () => Promise<T>,
-    ttlMs?: number
+    ttlMs?: number,
   ): Promise<T> {
     const existing = this.get(key);
     if (existing !== undefined) {

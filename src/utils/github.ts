@@ -14,7 +14,9 @@ const GITHUB_API_BASE = "https://api.github.com";
  * - git+https://github.com/owner/repo.git
  * - github:owner/repo
  */
-export function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
+export function parseGitHubUrl(
+  url: string,
+): { owner: string; repo: string } | null {
   // Handle github: shorthand
   if (url.startsWith("github:")) {
     const parts = url.slice(7).split("/");
@@ -48,14 +50,21 @@ export function parseGitHubUrl(url: string): { owner: string; repo: string } | n
 export async function fetchGitHubReadme(
   owner: string,
   repo: string,
-  ref?: string
+  ref?: string,
 ): Promise<string | null> {
   // Try common README filenames
-  const readmeFiles = ["README.md", "readme.md", "README", "readme.txt", "README.rst"];
+  const readmeFiles = [
+    "README.md",
+    "readme.md",
+    "README",
+    "readme.txt",
+    "README.rst",
+  ];
 
   for (const filename of readmeFiles) {
     try {
-      let url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${filename}`;
+      let url =
+        `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${filename}`;
       if (ref) {
         url += `?ref=${encodeURIComponent(ref)}`;
       }
@@ -82,13 +91,13 @@ export async function fetchGitHubReadme(
  * @param repositoryUrl - Full repository URL (GitHub, GitLab, etc.)
  * @param ref - Optional branch/tag/commit
  */
-export async function fetchReadmeFromRepository(
+export function fetchReadmeFromRepository(
   repositoryUrl: string,
-  ref?: string
+  ref?: string,
 ): Promise<string | null> {
   const parsed = parseGitHubUrl(repositoryUrl);
   if (!parsed) {
-    return null; // Not a GitHub URL or unsupported format
+    return Promise.resolve(null); // Not a GitHub URL or unsupported format
   }
 
   return fetchGitHubReadme(parsed.owner, parsed.repo, ref);

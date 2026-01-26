@@ -28,7 +28,7 @@ function parse(content: string): ParsedDependency[] {
   // Pattern: implementation("group:artifact:version")
   const funcNotationRegex = new RegExp(
     `(?:${configPattern})\\s*\\(\\s*["']([a-zA-Z0-9._-]+):([a-zA-Z0-9._-]+):([^"'\\s:]+)["']\\s*\\)`,
-    "g"
+    "g",
   );
 
   let match;

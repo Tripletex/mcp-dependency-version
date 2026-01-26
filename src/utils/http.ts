@@ -12,7 +12,8 @@ const VERSION = "1.0.0";
  * User-Agent header for all registry requests
  * Format follows RFC 7231 conventions
  */
-export const USER_AGENT = `mcp-dependency-version/${VERSION} (https://github.com/anthropics/mcp-dependency-version)`;
+export const USER_AGENT =
+  `mcp-dependency-version/${VERSION} (https://github.com/anthropics/mcp-dependency-version)`;
 
 /**
  * Default headers for all registry requests
@@ -48,9 +49,9 @@ function buildAuthHeader(auth: RepositoryAuth): string | null {
  * Fetch with default headers (User-Agent, Accept) and optional authentication
  * Use this instead of raw fetch() for all registry requests
  */
-export async function fetchWithHeaders(
+export function fetchWithHeaders(
   url: string,
-  options?: FetchOptions
+  options?: FetchOptions,
 ): Promise<Response> {
   const headers = new Headers(options?.headers);
 

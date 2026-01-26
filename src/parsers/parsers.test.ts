@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { npmParser } from "./npm.ts";
 import { pypiParser } from "./pypi.ts";
 import { cargoParser } from "./cargo.ts";
@@ -134,7 +134,10 @@ require golang.org/x/text v0.14.0
 `;
   const deps = goParser.parse(content);
   assertEquals(deps.length, 2);
-  assertEquals(deps[0], { name: "github.com/gin-gonic/gin", version: "v1.9.1" });
+  assertEquals(deps[0], {
+    name: "github.com/gin-gonic/gin",
+    version: "v1.9.1",
+  });
   assertEquals(deps[1], { name: "golang.org/x/text", version: "v0.14.0" });
 });
 
@@ -151,7 +154,10 @@ require (
 `;
   const deps = goParser.parse(content);
   assertEquals(deps.length, 2);
-  assertEquals(deps[0], { name: "github.com/gin-gonic/gin", version: "v1.9.1" });
+  assertEquals(deps[0], {
+    name: "github.com/gin-gonic/gin",
+    version: "v1.9.1",
+  });
   assertEquals(deps[1], { name: "golang.org/x/text", version: "v0.14.0" });
 });
 
@@ -175,8 +181,14 @@ Deno.test("mavenParser - parses pom.xml dependencies", () => {
 `;
   const deps = mavenParser.parse(content);
   assertEquals(deps.length, 2);
-  assertEquals(deps[0], { name: "org.springframework:spring-core", version: "6.0.0" });
-  assertEquals(deps[1], { name: "com.google.guava:guava", version: "31.1-jre" });
+  assertEquals(deps[0], {
+    name: "org.springframework:spring-core",
+    version: "6.0.0",
+  });
+  assertEquals(deps[1], {
+    name: "com.google.guava:guava",
+    version: "31.1-jre",
+  });
 });
 
 Deno.test("mavenParser - skips property references", () => {
@@ -198,7 +210,10 @@ Deno.test("mavenParser - skips property references", () => {
 `;
   const deps = mavenParser.parse(content);
   assertEquals(deps.length, 1);
-  assertEquals(deps[0], { name: "com.google.guava:guava", version: "31.1-jre" });
+  assertEquals(deps[0], {
+    name: "com.google.guava:guava",
+    version: "31.1-jre",
+  });
 });
 
 // Gradle Groovy Parser Tests
@@ -211,7 +226,10 @@ dependencies {
 `;
   const deps = gradleGroovyParser.parse(content);
   assertEquals(deps.length, 2);
-  assertEquals(deps[0], { name: "org.springframework:spring-core", version: "6.0.0" });
+  assertEquals(deps[0], {
+    name: "org.springframework:spring-core",
+    version: "6.0.0",
+  });
   assertEquals(deps[1], { name: "junit:junit", version: "4.13.2" });
 });
 
@@ -224,8 +242,14 @@ dependencies {
 `;
   const deps = gradleGroovyParser.parse(content);
   assertEquals(deps.length, 2);
-  assertEquals(deps[0], { name: "org.springframework:spring-core", version: "6.0.0" });
-  assertEquals(deps[1], { name: "com.google.guava:guava", version: "31.1-jre" });
+  assertEquals(deps[0], {
+    name: "org.springframework:spring-core",
+    version: "6.0.0",
+  });
+  assertEquals(deps[1], {
+    name: "com.google.guava:guava",
+    version: "31.1-jre",
+  });
 });
 
 Deno.test("gradleGroovyParser - parses map notation", () => {
@@ -236,7 +260,10 @@ dependencies {
 `;
   const deps = gradleGroovyParser.parse(content);
   assertEquals(deps.length, 1);
-  assertEquals(deps[0], { name: "org.springframework:spring-core", version: "6.0.0" });
+  assertEquals(deps[0], {
+    name: "org.springframework:spring-core",
+    version: "6.0.0",
+  });
 });
 
 Deno.test("gradleGroovyParser - skips variable references", () => {
@@ -248,7 +275,10 @@ dependencies {
 `;
   const deps = gradleGroovyParser.parse(content);
   assertEquals(deps.length, 1);
-  assertEquals(deps[0], { name: "com.google.guava:guava", version: "31.1-jre" });
+  assertEquals(deps[0], {
+    name: "com.google.guava:guava",
+    version: "31.1-jre",
+  });
 });
 
 // Gradle Kotlin Parser Tests
@@ -261,7 +291,10 @@ dependencies {
 `;
   const deps = gradleKotlinParser.parse(content);
   assertEquals(deps.length, 2);
-  assertEquals(deps[0], { name: "org.springframework:spring-core", version: "6.0.0" });
+  assertEquals(deps[0], {
+    name: "org.springframework:spring-core",
+    version: "6.0.0",
+  });
   assertEquals(deps[1], { name: "junit:junit", version: "4.13.2" });
 });
 
@@ -274,7 +307,10 @@ dependencies {
 `;
   const deps = gradleKotlinParser.parse(content);
   assertEquals(deps.length, 1);
-  assertEquals(deps[0], { name: "com.google.guava:guava", version: "31.1-jre" });
+  assertEquals(deps[0], {
+    name: "com.google.guava:guava",
+    version: "31.1-jre",
+  });
 });
 
 // parseDependencies factory function tests
@@ -292,7 +328,10 @@ Deno.test("parseDependencies - auto-detects pom.xml", () => {
 `;
   const deps = parseDependencies(content, "maven");
   assertEquals(deps.length, 1);
-  assertEquals(deps[0], { name: "org.springframework:spring-core", version: "6.0.0" });
+  assertEquals(deps[0], {
+    name: "org.springframework:spring-core",
+    version: "6.0.0",
+  });
 });
 
 Deno.test("parseDependencies - auto-detects Gradle Groovy", () => {
@@ -303,7 +342,10 @@ dependencies {
 `;
   const deps = parseDependencies(content, "maven");
   assertEquals(deps.length, 1);
-  assertEquals(deps[0], { name: "org.springframework:spring-core", version: "6.0.0" });
+  assertEquals(deps[0], {
+    name: "org.springframework:spring-core",
+    version: "6.0.0",
+  });
 });
 
 Deno.test("parseDependencies - auto-detects Gradle Kotlin", () => {
@@ -314,7 +356,10 @@ dependencies {
 `;
   const deps = parseDependencies(content, "maven");
   assertEquals(deps.length, 1);
-  assertEquals(deps[0], { name: "org.springframework:spring-core", version: "6.0.0" });
+  assertEquals(deps[0], {
+    name: "org.springframework:spring-core",
+    version: "6.0.0",
+  });
 });
 
 Deno.test("parseDependencies - uses correct parser for npm", () => {
@@ -351,7 +396,10 @@ require github.com/gin-gonic/gin v1.9.1
 `;
   const deps = parseDependencies(content, "go");
   assertEquals(deps.length, 1);
-  assertEquals(deps[0], { name: "github.com/gin-gonic/gin", version: "v1.9.1" });
+  assertEquals(deps[0], {
+    name: "github.com/gin-gonic/gin",
+    version: "v1.9.1",
+  });
 });
 
 // Parser metadata tests
@@ -554,7 +602,10 @@ Deno.test("nugetParser - parses PackageReference with Version attribute", () => 
   const deps = nugetParser.parse(content);
   assertEquals(deps.length, 2);
   assertEquals(deps[0], { name: "Newtonsoft.Json", version: "13.0.1" });
-  assertEquals(deps[1], { name: "Microsoft.Extensions.Logging", version: "7.0.0" });
+  assertEquals(deps[1], {
+    name: "Microsoft.Extensions.Logging",
+    version: "7.0.0",
+  });
 });
 
 Deno.test("nugetParser - parses PackageReference with Version as child element", () => {
