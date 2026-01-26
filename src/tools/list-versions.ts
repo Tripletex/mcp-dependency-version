@@ -9,14 +9,23 @@ import { getClient, supportedRegistries } from "../registries/index.ts";
 import type { Registry } from "../registries/types.ts";
 
 const inputSchema = z.object({
-  registry: z.enum(["npm", "maven", "pypi", "cargo", "go", "jsr", "nuget", "docker"]).describe(
-    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)"
+  registry: z.enum([
+    "npm",
+    "maven",
+    "pypi",
+    "cargo",
+    "go",
+    "jsr",
+    "nuget",
+    "docker",
+  ]).describe(
+    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)",
   ),
   package: z.string().describe(
-    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)"
+    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)",
   ),
   limit: z.number().optional().default(20).describe(
-    "Maximum number of versions to return (default: 20)"
+    "Maximum number of versions to return (default: 20)",
   ),
 });
 
@@ -51,9 +60,15 @@ Supported registries: ${supportedRegistries.join(", ")}`,
             isPrerelease: v.isPrerelease,
             isDeprecated: v.isDeprecated,
             ...(v.yanked !== undefined && { yanked: v.yanked }),
+            ...(v.digest !== undefined && { digest: v.digest }),
           })),
           totalCount: versions.length,
           showing: limitedVersions.length,
+          // Add security note for Docker registry
+          ...(registry === "docker" && {
+            securityNote:
+              "Docker tags are NOT immutable. Use digest-pinned references (image@sha256:...) for supply chain security.",
+          }),
         };
 
         return {
@@ -76,6 +91,6 @@ Supported registries: ${supportedRegistries.join(", ")}`,
           isError: true,
         };
       }
-    }
+    },
   );
 }

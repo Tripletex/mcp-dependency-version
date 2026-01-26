@@ -1,7 +1,15 @@
 /**
  * Supported package registries
  */
-export type Registry = "npm" | "maven" | "pypi" | "cargo" | "go" | "jsr" | "nuget" | "docker";
+export type Registry =
+  | "npm"
+  | "maven"
+  | "pypi"
+  | "cargo"
+  | "go"
+  | "jsr"
+  | "nuget"
+  | "docker";
 
 /**
  * Version information for a package
@@ -14,6 +22,12 @@ export interface VersionInfo {
   publishedAt?: Date;
   deprecated?: boolean;
   deprecationMessage?: string;
+  /** SHA256 digest for Docker images - provides immutable reference */
+  digest?: string;
+  /** Secure reference using digest (e.g., nginx@sha256:abc123...) */
+  secureReference?: string;
+  /** Security notes about tag mutability and recommended practices */
+  securityNotes?: string[];
 }
 
 /**
@@ -25,6 +39,8 @@ export interface VersionDetail {
   isPrerelease: boolean;
   isDeprecated: boolean;
   yanked?: boolean;
+  /** SHA256 digest for Docker images - provides immutable reference */
+  digest?: string;
 }
 
 /**
@@ -54,7 +70,7 @@ export interface RegistryClient {
   readonly registry: Registry;
   lookupVersion(
     packageName: string,
-    options?: LookupOptions
+    options?: LookupOptions,
   ): Promise<VersionInfo>;
   listVersions(packageName: string): Promise<VersionDetail[]>;
   getMetadata(packageName: string, version?: string): Promise<PackageMetadata>;

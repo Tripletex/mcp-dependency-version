@@ -9,17 +9,26 @@ import { getClient, supportedRegistries } from "../registries/index.ts";
 import type { Registry } from "../registries/types.ts";
 
 const inputSchema = z.object({
-  registry: z.enum(["npm", "maven", "pypi", "cargo", "go", "jsr", "nuget", "docker"]).describe(
-    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)"
+  registry: z.enum([
+    "npm",
+    "maven",
+    "pypi",
+    "cargo",
+    "go",
+    "jsr",
+    "nuget",
+    "docker",
+  ]).describe(
+    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)",
   ),
   package: z.string().describe(
-    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)"
+    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)",
   ),
   includePrerelease: z.boolean().optional().describe(
-    "Include alpha/beta/rc versions in results"
+    "Include alpha/beta/rc versions in results",
   ),
   versionPrefix: z.string().optional().describe(
-    'Filter versions by prefix (e.g., "2." for 2.x versions)'
+    'Filter versions by prefix (e.g., "2." for 2.x versions)',
   ),
 });
 
@@ -42,7 +51,9 @@ Examples:
 
 SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1.2.3" or "~1.2.3") to prevent dependency supply chain attacks.`,
     inputSchema.shape,
-    async ({ registry, package: packageName, includePrerelease, versionPrefix }) => {
+    async (
+      { registry, package: packageName, includePrerelease, versionPrefix },
+    ) => {
       try {
         const client = getClient(registry as Registry);
         const result = await client.lookupVersion(packageName, {
@@ -69,6 +80,17 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
           }
         }
 
+        // Include Docker-specific digest and security info
+        if (result.digest) {
+          output.digest = result.digest;
+        }
+        if (result.secureReference) {
+          output.secureReference = result.secureReference;
+        }
+        if (result.securityNotes && result.securityNotes.length > 0) {
+          output.securityNotes = result.securityNotes;
+        }
+
         return {
           content: [
             {
@@ -89,6 +111,6 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
           isError: true,
         };
       }
-    }
+    },
   );
 }
