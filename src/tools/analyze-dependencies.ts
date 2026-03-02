@@ -13,7 +13,7 @@ import { checkVulnerabilities } from "../utils/vulnerability.ts";
 
 const inputSchema = z.object({
   content: z.string().describe(
-    "File content (package.json, pom.xml, build.gradle, build.gradle.kts, requirements.txt, Cargo.toml, go.mod, deno.json, *.csproj, Dockerfile, docker-compose.yml)",
+    "File content (package.json, pom.xml, build.gradle, build.gradle.kts, requirements.txt, Cargo.toml, go.mod, deno.json, *.csproj, Dockerfile, docker-compose.yml, Gemfile, composer.json, pubspec.yaml, Package.swift)",
   ),
   registry: z.enum([
     "npm",
@@ -24,6 +24,10 @@ const inputSchema = z.object({
     "jsr",
     "nuget",
     "docker",
+    "rubygems",
+    "packagist",
+    "pub",
+    "swift",
   ]).describe(
     "Package registry to use. For Gradle files (build.gradle, build.gradle.kts), use 'maven'",
   ),
@@ -46,6 +50,10 @@ Supported file formats:
 - jsr: deno.json (supports jsr: and npm: imports)
 - nuget: *.csproj (PackageReference format)
 - docker: Dockerfile, docker-compose.yml
+- rubygems: Gemfile
+- packagist: composer.json
+- pub: pubspec.yaml
+- swift: Package.swift
 
 Note: For Gradle files, use registry='maven'. Variable references ($version, libs.xxx) are skipped.
 

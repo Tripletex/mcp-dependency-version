@@ -18,8 +18,12 @@ const inputSchema = z.object({
     "jsr",
     "nuget",
     "docker",
+    "rubygems",
+    "packagist",
+    "pub",
+    "swift",
   ]).describe(
-    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)",
+    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker, rubygems, packagist, pub, swift)",
   ),
   package: z.string().describe(
     "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)",
@@ -48,6 +52,10 @@ Examples:
 - jsr: @std/path, @oak/oak
 - nuget: Newtonsoft.Json, Microsoft.Extensions.Logging
 - docker: nginx, postgres, bitnami/redis
+- rubygems: rails, devise
+- packagist: symfony/console, laravel/framework
+- pub: http, provider, flutter_bloc
+- swift: apple/swift-nio, Alamofire/Alamofire
 
 SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1.2.3" or "~1.2.3") to prevent dependency supply chain attacks.`,
     inputSchema.shape,

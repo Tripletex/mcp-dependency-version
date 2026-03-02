@@ -13,6 +13,10 @@ export { gradleKotlinParser } from "./gradle-kotlin.ts";
 export { denoParser } from "./deno.ts";
 export { nugetParser } from "./nuget.ts";
 export { dockerParser } from "./docker.ts";
+export { rubygemsParser } from "./rubygems.ts";
+export { packagistParser } from "./packagist.ts";
+export { pubParser } from "./pub.ts";
+export { swiftParser } from "./swift.ts";
 
 import type { Registry } from "../registries/types.ts";
 import type { DependencyParser, ParsedDependency } from "./types.ts";
@@ -26,6 +30,10 @@ import { gradleKotlinParser } from "./gradle-kotlin.ts";
 import { denoParser } from "./deno.ts";
 import { nugetParser } from "./nuget.ts";
 import { dockerParser } from "./docker.ts";
+import { rubygemsParser } from "./rubygems.ts";
+import { packagistParser } from "./packagist.ts";
+import { pubParser } from "./pub.ts";
+import { swiftParser } from "./swift.ts";
 
 const parsers: Record<Registry, DependencyParser> = {
   npm: npmParser,
@@ -36,6 +44,10 @@ const parsers: Record<Registry, DependencyParser> = {
   jsr: denoParser,
   nuget: nugetParser,
   docker: dockerParser,
+  rubygems: rubygemsParser,
+  packagist: packagistParser,
+  pub: pubParser,
+  swift: swiftParser,
 };
 
 /**
@@ -105,6 +117,14 @@ export function parseDependencies(
       return nugetParser.parse(content);
     case "docker":
       return dockerParser.parse(content);
+    case "rubygems":
+      return rubygemsParser.parse(content);
+    case "packagist":
+      return packagistParser.parse(content);
+    case "pub":
+      return pubParser.parse(content);
+    case "swift":
+      return swiftParser.parse(content);
     default:
       throw new Error(`Unsupported registry: ${registry}`);
   }

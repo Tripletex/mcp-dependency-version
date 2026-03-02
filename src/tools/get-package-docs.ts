@@ -88,6 +88,27 @@ function getDocumentationUrls(
         docs: `https://hub.docker.com/r/${packageName}`,
       };
     }
+    case "rubygems":
+      return {
+        docs: `https://rubygems.org/gems/${packageName}${
+          version ? `/versions/${version}` : ""
+        }`,
+      };
+    case "packagist":
+      return {
+        docs: `https://packagist.org/packages/${packageName}`,
+      };
+    case "pub":
+      return {
+        docs: `https://pub.dev/packages/${packageName}${
+          version ? `/versions/${version}` : ""
+        }`,
+      };
+    case "swift":
+      return {
+        docs: `https://swiftpackageindex.com/${packageName}`,
+        repository: `https://github.com/${packageName}`,
+      };
     default:
       return {};
   }
@@ -135,6 +156,73 @@ async function fetchPypiDescription(
       const data = await response.json();
       // PyPI returns description which is typically the README
       return data.info?.description || null;
+    }
+  } catch {
+    // Fall through
+  }
+  return null;
+}
+
+/**
+ * Fetch README from RubyGems
+ */
+async function fetchRubygemsReadme(
+  packageName: string,
+): Promise<string | null> {
+  const repoConfig = getRepositoryConfig("rubygems");
+
+  try {
+    const response = await fetchWithHeaders(
+      `${repoConfig.url}/api/v1/gems/${packageName}.json`,
+      { auth: repoConfig.auth },
+    );
+    if (response.ok) {
+      const data = await response.json();
+      // RubyGems doesn't embed README, but returns info/description
+      return data.info || null;
+    }
+  } catch {
+    // Fall through
+  }
+  return null;
+}
+
+/**
+ * Fetch description from Packagist
+ */
+async function fetchPackagistDescription(
+  packageName: string,
+): Promise<string | null> {
+  try {
+    const response = await fetchWithHeaders(
+      `https://packagist.org/packages/${packageName}.json`,
+    );
+    if (response.ok) {
+      const data = await response.json();
+      return data.package?.description || null;
+    }
+  } catch {
+    // Fall through
+  }
+  return null;
+}
+
+/**
+ * Fetch description from pub.dev
+ */
+async function fetchPubDescription(
+  packageName: string,
+): Promise<string | null> {
+  const repoConfig = getRepositoryConfig("pub");
+
+  try {
+    const response = await fetchWithHeaders(
+      `${repoConfig.url}/packages/${packageName}`,
+      { auth: repoConfig.auth },
+    );
+    if (response.ok) {
+      const data = await response.json();
+      return data.latest?.pubspec?.description || null;
     }
   } catch {
     // Fall through
@@ -254,12 +342,28 @@ export async function getPackageDocs(
         if (content) result.source = "registry";
         break;
 
+      case "rubygems":
+        content = await fetchRubygemsReadme(packageName);
+        if (content) result.source = "registry";
+        break;
+
+      case "packagist":
+        content = await fetchPackagistDescription(packageName);
+        if (content) result.source = "registry";
+        break;
+
+      case "pub":
+        content = await fetchPubDescription(packageName);
+        if (content) result.source = "registry";
+        break;
+
       // These registries don't have README in API, skip to repository fetch
       case "maven":
       case "go":
       case "jsr":
       case "nuget":
       case "docker":
+      case "swift":
         break;
     }
 
@@ -292,8 +396,12 @@ const inputSchema = z.object({
     "jsr",
     "nuget",
     "docker",
+    "rubygems",
+    "packagist",
+    "pub",
+    "swift",
   ]).describe(
-    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)",
+    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker, rubygems, packagist, pub, swift)",
   ),
   package: z.string().describe(
     "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)",
@@ -312,7 +420,7 @@ Supported registries: ${supportedRegistries.join(", ")}
 
 This tool fetches README content to help understand how to use a package.
 For npm, PyPI, and Cargo, README is fetched directly from the registry API.
-For Maven, Go, JSR, NuGet, and Docker, README is fetched from the package's GitHub repository.
+For Maven, Go, JSR, NuGet, Docker, and Swift, README is fetched from the package's GitHub repository.
 
 Returns:
 - README content (when available)
@@ -327,7 +435,11 @@ Examples:
 - go: github.com/gin-gonic/gin
 - jsr: @std/path
 - nuget: Newtonsoft.Json
-- docker: nginx, postgres, bitnami/redis`,
+- docker: nginx, postgres, bitnami/redis
+- rubygems: rails, devise
+- packagist: symfony/console, laravel/framework
+- pub: http, provider, flutter_bloc
+- swift: apple/swift-nio, Alamofire/Alamofire`,
     inputSchema.shape,
     async ({ registry, package: packageName, version }) => {
       const result = await getPackageDocs({

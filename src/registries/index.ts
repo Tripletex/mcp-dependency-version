@@ -11,6 +11,10 @@ export { goClient } from "./go.ts";
 export { jsrClient } from "./jsr.ts";
 export { nugetClient } from "./nuget.ts";
 export { dockerClient } from "./docker.ts";
+export { rubygemsClient } from "./rubygems.ts";
+export { packagistClient } from "./packagist.ts";
+export { pubClient } from "./pub.ts";
+export { swiftClient } from "./swift.ts";
 
 import type { Registry, RegistryClient } from "./types.ts";
 import { npmClient } from "./npm.ts";
@@ -21,6 +25,10 @@ import { goClient } from "./go.ts";
 import { jsrClient } from "./jsr.ts";
 import { nugetClient } from "./nuget.ts";
 import { dockerClient } from "./docker.ts";
+import { rubygemsClient } from "./rubygems.ts";
+import { packagistClient } from "./packagist.ts";
+import { pubClient } from "./pub.ts";
+import { swiftClient } from "./swift.ts";
 
 const clients: Record<Registry, RegistryClient> = {
   npm: npmClient,
@@ -31,6 +39,10 @@ const clients: Record<Registry, RegistryClient> = {
   jsr: jsrClient,
   nuget: nugetClient,
   docker: dockerClient,
+  rubygems: rubygemsClient,
+  packagist: packagistClient,
+  pub: pubClient,
+  swift: swiftClient,
 };
 
 /**
@@ -76,4 +88,8 @@ export const supportedRegistries: Registry[] = [
   "jsr",
   "nuget",
   "docker",
+  "rubygems",
+  "packagist",
+  "pub",
+  "swift",
 ];
