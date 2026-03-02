@@ -18,8 +18,12 @@ const inputSchema = z.object({
     "jsr",
     "nuget",
     "docker",
+    "rubygems",
+    "packagist",
+    "pub",
+    "swift",
   ]).describe(
-    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker)",
+    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker, rubygems, packagist, pub, swift)",
   ),
   package: z.string().describe(
     "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)",

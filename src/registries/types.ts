@@ -9,7 +9,11 @@ export type Registry =
   | "go"
   | "jsr"
   | "nuget"
-  | "docker";
+  | "docker"
+  | "rubygems"
+  | "packagist"
+  | "pub"
+  | "swift";
 
 /**
  * Version information for a package

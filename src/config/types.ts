@@ -108,5 +108,33 @@ export const DEFAULT_CONFIG: Config = {
         default: true,
       },
     },
+    rubygems: {
+      rubygemsorg: {
+        name: "RubyGems.org",
+        url: "https://rubygems.org",
+        default: true,
+      },
+    },
+    packagist: {
+      packagistorg: {
+        name: "Packagist",
+        url: "https://repo.packagist.org",
+        default: true,
+      },
+    },
+    pub: {
+      pubdev: {
+        name: "pub.dev",
+        url: "https://pub.dev/api",
+        default: true,
+      },
+    },
+    swift: {
+      github: {
+        name: "GitHub",
+        url: "https://api.github.com",
+        default: true,
+      },
+    },
   },
 };
