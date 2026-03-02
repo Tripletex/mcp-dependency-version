@@ -8,6 +8,10 @@ import { gradleGroovyParser } from "./gradle-groovy.ts";
 import { gradleKotlinParser } from "./gradle-kotlin.ts";
 import { denoParser } from "./deno.ts";
 import { nugetParser } from "./nuget.ts";
+import { rubygemsParser } from "./rubygems.ts";
+import { packagistParser } from "./packagist.ts";
+import { pubParser } from "./pub.ts";
+import { swiftParser } from "./swift.ts";
 import { parseDependencies } from "./index.ts";
 
 // NPM Parser Tests
@@ -706,4 +710,302 @@ Deno.test("parseDependencies - uses correct parser for nuget", () => {
   const deps = parseDependencies(content, "nuget");
   assertEquals(deps.length, 1);
   assertEquals(deps[0], { name: "Newtonsoft.Json", version: "13.0.1" });
+});
+
+// RubyGems Parser Tests
+Deno.test("rubygemsParser - parses simple gem declarations", () => {
+  const content = `
+source 'https://rubygems.org'
+
+gem 'rails', '~> 7.0'
+gem 'devise', '4.9.2'
+gem 'pg', '>= 1.1'
+`;
+  const deps = rubygemsParser.parse(content);
+  assertEquals(deps.length, 3);
+  assertEquals(deps[0], { name: "rails", version: "7.0" });
+  assertEquals(deps[1], { name: "devise", version: "4.9.2" });
+  assertEquals(deps[2], { name: "pg", version: "1.1" });
+});
+
+Deno.test("rubygemsParser - handles double-quoted gem names", () => {
+  const content = `
+gem "puma", "~> 6.0"
+gem "redis", ">= 4.0.1"
+`;
+  const deps = rubygemsParser.parse(content);
+  assertEquals(deps.length, 2);
+  assertEquals(deps[0], { name: "puma", version: "6.0" });
+  assertEquals(deps[1], { name: "redis", version: "4.0.1" });
+});
+
+Deno.test("rubygemsParser - skips comments and empty lines", () => {
+  const content = `
+# Web framework
+gem 'rails', '7.0.0'
+
+# Database
+gem 'pg', '1.5.0'
+`;
+  const deps = rubygemsParser.parse(content);
+  assertEquals(deps.length, 2);
+});
+
+Deno.test("rubygemsParser - handles gems without version", () => {
+  const content = `
+gem 'rails', '7.0.0'
+gem 'byebug'
+`;
+  const deps = rubygemsParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "rails", version: "7.0.0" });
+});
+
+Deno.test("rubygemsParser - handles empty Gemfile", () => {
+  const content = `
+source 'https://rubygems.org'
+`;
+  const deps = rubygemsParser.parse(content);
+  assertEquals(deps.length, 0);
+});
+
+Deno.test("parser metadata - rubygems", () => {
+  assertEquals(rubygemsParser.fileType, "Gemfile");
+  assertEquals(rubygemsParser.registry, "rubygems");
+});
+
+Deno.test("parseDependencies - uses correct parser for rubygems", () => {
+  const content = `gem 'rails', '7.0.0'\n`;
+  const deps = parseDependencies(content, "rubygems");
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "rails", version: "7.0.0" });
+});
+
+// Packagist Parser Tests
+Deno.test("packagistParser - parses require and require-dev", () => {
+  const content = JSON.stringify({
+    require: {
+      "symfony/console": "^6.0",
+      "laravel/framework": "~10.0",
+    },
+    "require-dev": {
+      "phpunit/phpunit": "^10.0",
+    },
+  });
+
+  const deps = packagistParser.parse(content);
+  assertEquals(deps.length, 3);
+  assertEquals(deps[0], { name: "symfony/console", version: "6.0" });
+  assertEquals(deps[1], { name: "laravel/framework", version: "10.0" });
+  assertEquals(deps[2], { name: "phpunit/phpunit", version: "10.0" });
+});
+
+Deno.test("packagistParser - skips php and ext- entries", () => {
+  const content = JSON.stringify({
+    require: {
+      php: "^8.1",
+      "ext-json": "*",
+      "ext-mbstring": "*",
+      "symfony/console": "^6.0",
+    },
+  });
+
+  const deps = packagistParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "symfony/console", version: "6.0" });
+});
+
+Deno.test("packagistParser - skips wildcard and dev versions", () => {
+  const content = JSON.stringify({
+    require: {
+      "some/package": "*",
+      "dev/package": "dev-main",
+      "real/package": "^1.0",
+    },
+  });
+
+  const deps = packagistParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "real/package", version: "1.0" });
+});
+
+Deno.test("packagistParser - handles empty composer.json", () => {
+  const content = JSON.stringify({});
+  const deps = packagistParser.parse(content);
+  assertEquals(deps.length, 0);
+});
+
+Deno.test("parser metadata - packagist", () => {
+  assertEquals(packagistParser.fileType, "composer.json");
+  assertEquals(packagistParser.registry, "packagist");
+});
+
+Deno.test("parseDependencies - uses correct parser for packagist", () => {
+  const content = JSON.stringify({
+    require: { "symfony/console": "^6.0" },
+  });
+  const deps = parseDependencies(content, "packagist");
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "symfony/console", version: "6.0" });
+});
+
+// Pub Parser Tests
+Deno.test("pubParser - parses dependencies with caret constraints", () => {
+  const content = `name: my_app
+version: 1.0.0
+
+dependencies:
+  http: ^0.13.0
+  provider: ^6.0.0
+
+dev_dependencies:
+  test: ^1.24.0
+`;
+  const deps = pubParser.parse(content);
+  assertEquals(deps.length, 3);
+  assertEquals(deps[0], { name: "http", version: "0.13.0" });
+  assertEquals(deps[1], { name: "provider", version: "6.0.0" });
+  assertEquals(deps[2], { name: "test", version: "1.24.0" });
+});
+
+Deno.test("pubParser - parses exact version constraints", () => {
+  const content = `name: my_app
+
+dependencies:
+  http: 0.13.6
+  provider: 6.1.1
+`;
+  const deps = pubParser.parse(content);
+  assertEquals(deps.length, 2);
+  assertEquals(deps[0], { name: "http", version: "0.13.6" });
+  assertEquals(deps[1], { name: "provider", version: "6.1.1" });
+});
+
+Deno.test("pubParser - skips path and git dependencies", () => {
+  const content = `name: my_app
+
+dependencies:
+  http: ^0.13.0
+  local_pkg:
+    path: ../local_pkg
+  git_pkg:
+    git:
+      url: https://github.com/user/repo
+`;
+  const deps = pubParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "http", version: "0.13.0" });
+});
+
+Deno.test("pubParser - handles empty pubspec", () => {
+  const content = `name: my_app
+version: 1.0.0
+`;
+  const deps = pubParser.parse(content);
+  assertEquals(deps.length, 0);
+});
+
+Deno.test("parser metadata - pub", () => {
+  assertEquals(pubParser.fileType, "pubspec.yaml");
+  assertEquals(pubParser.registry, "pub");
+});
+
+Deno.test("parseDependencies - uses correct parser for pub", () => {
+  const content = `name: my_app
+
+dependencies:
+  http: ^0.13.0
+`;
+  const deps = parseDependencies(content, "pub");
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "http", version: "0.13.0" });
+});
+
+// Swift Parser Tests
+Deno.test("swiftParser - parses .package(url:, from:) patterns", () => {
+  const content = `
+// swift-tools-version:5.9
+import PackageDescription
+
+let package = Package(
+    name: "MyApp",
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-nio", from: "2.0.0"),
+        .package(url: "https://github.com/Alamofire/Alamofire.git", from: "5.8.0"),
+    ]
+)
+`;
+  const deps = swiftParser.parse(content);
+  assertEquals(deps.length, 2);
+  assertEquals(deps[0], { name: "apple/swift-nio", version: "2.0.0" });
+  assertEquals(deps[1], { name: "Alamofire/Alamofire", version: "5.8.0" });
+});
+
+Deno.test("swiftParser - parses exact version", () => {
+  const content = `
+let package = Package(
+    dependencies: [
+        .package(url: "https://github.com/vapor/vapor", exact: "4.89.0"),
+    ]
+)
+`;
+  const deps = swiftParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "vapor/vapor", version: "4.89.0" });
+});
+
+Deno.test("swiftParser - parses .upToNextMajor(from:) pattern", () => {
+  const content = `
+let package = Package(
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-nio", .upToNextMajor(from: "2.0.0")),
+    ]
+)
+`;
+  const deps = swiftParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "apple/swift-nio", version: "2.0.0" });
+});
+
+Deno.test("swiftParser - skips non-GitHub URLs", () => {
+  const content = `
+let package = Package(
+    dependencies: [
+        .package(url: "https://example.com/some/repo", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-nio", from: "2.0.0"),
+    ]
+)
+`;
+  const deps = swiftParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "apple/swift-nio", version: "2.0.0" });
+});
+
+Deno.test("swiftParser - handles empty Package.swift", () => {
+  const content = `
+let package = Package(
+    name: "MyApp",
+    dependencies: []
+)
+`;
+  const deps = swiftParser.parse(content);
+  assertEquals(deps.length, 0);
+});
+
+Deno.test("parser metadata - swift", () => {
+  assertEquals(swiftParser.fileType, "Package.swift");
+  assertEquals(swiftParser.registry, "swift");
+});
+
+Deno.test("parseDependencies - uses correct parser for swift", () => {
+  const content = `
+let package = Package(
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-nio", from: "2.0.0"),
+    ]
+)
+`;
+  const deps = parseDependencies(content, "swift");
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "apple/swift-nio", version: "2.0.0" });
 });
