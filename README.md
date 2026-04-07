@@ -6,7 +6,7 @@ multiple package registries.
 ## Features
 
 - **Multi-registry support**: npm, Maven Central, PyPI, crates.io, Go proxy,
-  JSR, NuGet, Docker Hub, RubyGems, Packagist, pub.dev, Swift PM
+  JSR, NuGet, Docker Hub, RubyGems, Packagist, pub.dev, Swift PM, GitHub Actions
 - **Version lookup**: Get the latest stable (and optionally prerelease) versions
 - **Version listing**: List all available versions with metadata
 - **Vulnerability scanning**: Check packages against the OSV (Open Source
@@ -54,22 +54,38 @@ vector.
 the exact same image. The `lookup_version` and `list_versions` tools return the
 `digest` and `secureReference` fields for Docker images to make this easy.
 
+### GitHub Actions: Use Commit SHA-Pinned References
+
+**GitHub Action tags are NOT immutable.** Tags like `v4` can be force-pushed to
+point to a different commit at any time, creating a supply chain attack vector.
+
+| Bad (vulnerable)        | Good (secure)                            |
+| ----------------------- | ---------------------------------------- |
+| `actions/checkout@v4`   | `actions/checkout@b4ffde65... # v4.2.0`  |
+| `actions/setup-node@v4` | `actions/setup-node@1a4442c... # v4.0.1` |
+
+**Use commit SHA-pinned references** (`owner/repo@sha`) to ensure you always use
+the exact same action code. The `lookup_version` and `list_versions` tools
+return the `digest` (commit SHA) and `secureReference` fields for GitHub Actions
+to make this easy.
+
 ## Supported Registries
 
-| Registry  | API Endpoint           | Package Format                   |
-| --------- | ---------------------- | -------------------------------- |
-| npm       | registry.npmjs.org     | `package-name`, `@scope/package` |
-| maven     | repo1.maven.org/maven2 | `groupId:artifactId`             |
-| pypi      | pypi.org               | `package-name`                   |
-| cargo     | crates.io              | `crate-name`                     |
-| go        | proxy.golang.org       | `github.com/user/repo`           |
-| jsr       | api.jsr.io             | `@scope/name`                    |
-| nuget     | api.nuget.org          | `Package.Name`                   |
-| docker    | hub.docker.com         | `image`, `user/image`            |
-| rubygems  | rubygems.org           | `gem-name`                       |
-| packagist | packagist.org          | `vendor/package`                 |
-| pub       | pub.dev                | `package_name`                   |
-| swift     | api.github.com         | `owner/repo`                     |
+| Registry       | API Endpoint           | Package Format                   |
+| -------------- | ---------------------- | -------------------------------- |
+| npm            | registry.npmjs.org     | `package-name`, `@scope/package` |
+| maven          | repo1.maven.org/maven2 | `groupId:artifactId`             |
+| pypi           | pypi.org               | `package-name`                   |
+| cargo          | crates.io              | `crate-name`                     |
+| go             | proxy.golang.org       | `github.com/user/repo`           |
+| jsr            | api.jsr.io             | `@scope/name`                    |
+| nuget          | api.nuget.org          | `Package.Name`                   |
+| docker         | hub.docker.com         | `image`, `user/image`            |
+| rubygems       | rubygems.org           | `gem-name`                       |
+| packagist      | packagist.org          | `vendor/package`                 |
+| pub            | pub.dev                | `package_name`                   |
+| swift          | api.github.com         | `owner/repo`                     |
+| github-actions | api.github.com         | `owner/repo`                     |
 
 ## Installation
 
@@ -252,20 +268,21 @@ The configuration supports two authentication methods:
 
 If no configuration file exists, the server uses the official public registries:
 
-| Registry  | Default URL                     |
-| --------- | ------------------------------- |
-| npm       | https://registry.npmjs.org      |
-| maven     | https://repo1.maven.org/maven2  |
-| pypi      | https://pypi.org/pypi           |
-| cargo     | https://crates.io/api/v1/crates |
-| go        | https://proxy.golang.org        |
-| jsr       | https://api.jsr.io              |
-| nuget     | https://api.nuget.org/v3        |
-| docker    | https://hub.docker.com          |
-| rubygems  | https://rubygems.org            |
-| packagist | https://repo.packagist.org      |
-| pub       | https://pub.dev/api             |
-| swift     | https://api.github.com          |
+| Registry       | Default URL                     |
+| -------------- | ------------------------------- |
+| npm            | https://registry.npmjs.org      |
+| maven          | https://repo1.maven.org/maven2  |
+| pypi           | https://pypi.org/pypi           |
+| cargo          | https://crates.io/api/v1/crates |
+| go             | https://proxy.golang.org        |
+| jsr            | https://api.jsr.io              |
+| nuget          | https://api.nuget.org/v3        |
+| docker         | https://hub.docker.com          |
+| rubygems       | https://rubygems.org            |
+| packagist      | https://repo.packagist.org      |
+| pub            | https://pub.dev/api             |
+| swift          | https://api.github.com          |
+| github-actions | https://api.github.com          |
 
 ## Tools
 
@@ -276,7 +293,8 @@ Look up the latest version of a package.
 **Parameters:**
 
 - `registry` (required): Package registry (`npm`, `maven`, `pypi`, `cargo`,
-  `go`, `jsr`, `nuget`, `docker`, `rubygems`, `packagist`, `pub`, `swift`)
+  `go`, `jsr`, `nuget`, `docker`, `rubygems`, `packagist`, `pub`, `swift`,
+  `github-actions`)
 - `package` (required): Package name
 - `includePrerelease` (optional): Include alpha/beta/rc versions
 - `versionPrefix` (optional): Filter versions by prefix (e.g., `"2."` for 2.x)
@@ -316,6 +334,24 @@ Look up the latest version of a package.
     "Using the digest-pinned reference (image@sha256:...) provides protection against tag tampering.",
     "Digest-pinned references ensure you always pull the exact same image, preventing supply chain attacks.",
     "When updating, explicitly change the digest and verify the new image before deployment."
+  ]
+}
+```
+
+**GitHub Actions Output (includes commit SHA for secure pinning):**
+
+```json
+{
+  "packageName": "actions/checkout",
+  "registry": "github-actions",
+  "latestStable": "4.2.0",
+  "publishedAt": "2024-10-01T12:00:00.000Z",
+  "digest": "b4ffde65f46336ab88eb53be808477a3936bae11",
+  "secureReference": "actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.2.0",
+  "securityNotes": [
+    "GitHub Action tags are NOT immutable. Tags can be force-pushed to point to different commits.",
+    "Use commit SHA-pinned references (owner/repo@sha) for supply chain security.",
+    "Secure reference: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.2.0"
   ]
 }
 ```
@@ -415,32 +451,35 @@ Analyze a dependency file and check for available updates.
 **Parameters:**
 
 - `content` (required): File content (package.json, pom.xml, build.gradle,
-  build.gradle.kts, requirements.txt, Cargo.toml, go.mod, deno.json, *.csproj,
-  Gemfile, composer.json, pubspec.yaml, Package.swift)
-- `registry` (required): Package registry (use `maven` for Gradle files)
+  build.gradle.kts, requirements.txt, Cargo.toml, go.mod, deno.json, _.csproj,
+  Gemfile, composer.json, pubspec.yaml, Package.swift, .github/workflows/_.yml)
+- `registry` (required): Package registry (use `maven` for Gradle files, use
+  `github-actions` for workflow files)
 - `checkVulnerabilities` (optional): Also scan for vulnerabilities (default:
   false)
 
 **Supported Dependency Files:**
 
-| Registry  | File Formats                                                    |
-| --------- | --------------------------------------------------------------- |
-| npm       | `package.json`                                                  |
-| maven     | `pom.xml`, `build.gradle` (Groovy), `build.gradle.kts` (Kotlin) |
-| pypi      | `requirements.txt`                                              |
-| cargo     | `Cargo.toml`                                                    |
-| go        | `go.mod`                                                        |
-| jsr       | `deno.json` (supports jsr: and npm: imports)                    |
-| nuget     | `*.csproj` (PackageReference format)                            |
-| docker    | `Dockerfile`, `docker-compose.yml`                              |
-| rubygems  | `Gemfile`                                                       |
-| packagist | `composer.json`                                                 |
-| pub       | `pubspec.yaml`                                                  |
-| swift     | `Package.swift`                                                 |
+| Registry       | File Formats                                                    |
+| -------------- | --------------------------------------------------------------- |
+| npm            | `package.json`                                                  |
+| maven          | `pom.xml`, `build.gradle` (Groovy), `build.gradle.kts` (Kotlin) |
+| pypi           | `requirements.txt`                                              |
+| cargo          | `Cargo.toml`                                                    |
+| go             | `go.mod`                                                        |
+| jsr            | `deno.json` (supports jsr: and npm: imports)                    |
+| nuget          | `*.csproj` (PackageReference format)                            |
+| docker         | `Dockerfile`, `docker-compose.yml`                              |
+| rubygems       | `Gemfile`                                                       |
+| packagist      | `composer.json`                                                 |
+| pub            | `pubspec.yaml`                                                  |
+| swift          | `Package.swift`                                                 |
+| github-actions | `.github/workflows/*.yml`                                       |
 
-**Note:** For Gradle files, variable references (`$version`, `${libs.xxx}`,
-version catalogs) are skipped since they can't be resolved without evaluating
-the build.
+**Note:** For GitHub Actions workflow files, SHA-pinned references are skipped
+since they are already secure. For Gradle files, variable references
+(`$version`, `${libs.xxx}`, version catalogs) are skipped since they can't be
+resolved without evaluating the build.
 
 **Example (npm):**
 
@@ -505,26 +544,28 @@ Get README documentation for a package.
 **Parameters:**
 
 - `registry` (required): Package registry (`npm`, `maven`, `pypi`, `cargo`,
-  `go`, `jsr`, `nuget`, `docker`, `rubygems`, `packagist`, `pub`, `swift`)
+  `go`, `jsr`, `nuget`, `docker`, `rubygems`, `packagist`, `pub`, `swift`,
+  `github-actions`)
 - `package` (required): Package name
 - `version` (optional): Specific version to get documentation for
 
 **Documentation Sources:**
 
-| Registry  | README Source              | Repository URL Source       |
-| --------- | -------------------------- | --------------------------- |
-| npm       | Registry API               | `repository` field          |
-| pypi      | Registry API (description) | `project_urls` field        |
-| cargo     | Registry API               | `repository` field          |
-| maven     | GitHub (fallback)          | POM `<scm>` section         |
-| go        | GitHub (fallback)          | Module path (if github.com) |
-| jsr       | GitHub (fallback)          | `githubRepository` field    |
-| nuget     | GitHub (fallback)          | Catalog entry               |
-| docker    | GitHub (fallback)          | Docker Hub page             |
-| rubygems  | Registry API (info)        | `source_code_uri` field     |
-| packagist | Registry API (description) | `repository` field          |
-| pub       | Registry API (description) | `repository` field          |
-| swift     | GitHub (fallback)          | GitHub repository URL       |
+| Registry       | README Source              | Repository URL Source       |
+| -------------- | -------------------------- | --------------------------- |
+| npm            | Registry API               | `repository` field          |
+| pypi           | Registry API (description) | `project_urls` field        |
+| cargo          | Registry API               | `repository` field          |
+| maven          | GitHub (fallback)          | POM `<scm>` section         |
+| go             | GitHub (fallback)          | Module path (if github.com) |
+| jsr            | GitHub (fallback)          | `githubRepository` field    |
+| nuget          | GitHub (fallback)          | Catalog entry               |
+| docker         | GitHub (fallback)          | Docker Hub page             |
+| rubygems       | Registry API (info)        | `source_code_uri` field     |
+| packagist      | Registry API (description) | `repository` field          |
+| pub            | Registry API (description) | `repository` field          |
+| swift          | GitHub (fallback)          | GitHub repository URL       |
+| github-actions | GitHub (fallback)          | GitHub repository URL       |
 
 **Example:**
 
@@ -591,21 +632,22 @@ src/
 
 ### Registry APIs
 
-| Registry  | API Endpoint                                     | Documentation                                                            |
-| --------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
-| npm       | `registry.npmjs.org/{package}`                   | [docs](https://github.com/npm/registry/blob/master/docs/REGISTRY-API.md) |
-| Maven     | `repo1.maven.org/maven2`                         | [docs](https://central.sonatype.com/search)                              |
-| PyPI      | `pypi.org/pypi/{package}/json`                   | [docs](https://warehouse.pypa.io/api-reference/json.html)                |
-| Cargo     | `crates.io/api/v1/crates/{crate}`                | [docs](https://crates.io/data-access)                                    |
-| Go        | `proxy.golang.org/{module}/@v/list`              | [docs](https://go.dev/ref/mod#goproxy-protocol)                          |
-| JSR       | `api.jsr.io/scopes/{scope}/packages/{name}`      | [docs](https://jsr.io/docs/api)                                          |
-| NuGet     | `api.nuget.org/v3-flatcontainer/{id}/index.json` | [docs](https://learn.microsoft.com/en-us/nuget/api/overview)             |
-| Docker    | `hub.docker.com/v2/repositories/{image}/tags`    | [docs](https://docs.docker.com/docker-hub/api/latest/)                   |
-| RubyGems  | `rubygems.org/api/v1/gems/{gem}.json`            | [docs](https://guides.rubygems.org/rubygems-org-api/)                    |
-| Packagist | `repo.packagist.org/p2/{vendor}/{package}.json`  | [docs](https://packagist.org/apidoc)                                     |
-| Pub       | `pub.dev/api/packages/{package}`                 | [docs](https://pub.dev/help/api)                                         |
-| Swift     | `api.github.com/repos/{owner}/{repo}/tags`       | [docs](https://docs.github.com/en/rest/repos/repos)                      |
-| OSV       | `api.osv.dev/v1/query`                           | [docs](https://osv.dev/docs/)                                            |
+| Registry       | API Endpoint                                     | Documentation                                                            |
+| -------------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
+| npm            | `registry.npmjs.org/{package}`                   | [docs](https://github.com/npm/registry/blob/master/docs/REGISTRY-API.md) |
+| Maven          | `repo1.maven.org/maven2`                         | [docs](https://central.sonatype.com/search)                              |
+| PyPI           | `pypi.org/pypi/{package}/json`                   | [docs](https://warehouse.pypa.io/api-reference/json.html)                |
+| Cargo          | `crates.io/api/v1/crates/{crate}`                | [docs](https://crates.io/data-access)                                    |
+| Go             | `proxy.golang.org/{module}/@v/list`              | [docs](https://go.dev/ref/mod#goproxy-protocol)                          |
+| JSR            | `api.jsr.io/scopes/{scope}/packages/{name}`      | [docs](https://jsr.io/docs/api)                                          |
+| NuGet          | `api.nuget.org/v3-flatcontainer/{id}/index.json` | [docs](https://learn.microsoft.com/en-us/nuget/api/overview)             |
+| Docker         | `hub.docker.com/v2/repositories/{image}/tags`    | [docs](https://docs.docker.com/docker-hub/api/latest/)                   |
+| RubyGems       | `rubygems.org/api/v1/gems/{gem}.json`            | [docs](https://guides.rubygems.org/rubygems-org-api/)                    |
+| Packagist      | `repo.packagist.org/p2/{vendor}/{package}.json`  | [docs](https://packagist.org/apidoc)                                     |
+| Pub            | `pub.dev/api/packages/{package}`                 | [docs](https://pub.dev/help/api)                                         |
+| Swift          | `api.github.com/repos/{owner}/{repo}/tags`       | [docs](https://docs.github.com/en/rest/repos/repos)                      |
+| GitHub Actions | `api.github.com/repos/{owner}/{repo}/tags`       | [docs](https://docs.github.com/en/rest/repos/repos)                      |
+| OSV            | `api.osv.dev/v1/query`                           | [docs](https://osv.dev/docs/)                                            |
 
 ## License
 
