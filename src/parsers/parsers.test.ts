@@ -12,6 +12,7 @@ import { rubygemsParser } from "./rubygems.ts";
 import { packagistParser } from "./packagist.ts";
 import { pubParser } from "./pub.ts";
 import { swiftParser } from "./swift.ts";
+import { githubActionsParser } from "./github-actions.ts";
 import { parseDependencies } from "./index.ts";
 
 // NPM Parser Tests
@@ -1008,4 +1009,150 @@ let package = Package(
   const deps = parseDependencies(content, "swift");
   assertEquals(deps.length, 1);
   assertEquals(deps[0], { name: "apple/swift-nio", version: "2.0.0" });
+});
+
+// GitHub Actions Parser Tests
+Deno.test("githubActionsParser - parses uses directives from workflow", () => {
+  const content = `
+name: CI
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - uses: docker/build-push-action@v5
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 3);
+  assertEquals(deps[0], { name: "actions/checkout", version: "4" });
+  assertEquals(deps[1], { name: "actions/setup-node", version: "4" });
+  assertEquals(deps[2], { name: "docker/build-push-action", version: "5" });
+});
+
+Deno.test("githubActionsParser - parses full semver versions", () => {
+  const content = `
+jobs:
+  build:
+    steps:
+      - uses: actions/checkout@v4.2.0
+      - uses: actions/setup-node@v4.0.1
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 2);
+  assertEquals(deps[0], { name: "actions/checkout", version: "4.2.0" });
+  assertEquals(deps[1], { name: "actions/setup-node", version: "4.0.1" });
+});
+
+Deno.test("githubActionsParser - handles subpath actions", () => {
+  const content = `
+jobs:
+  build:
+    steps:
+      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/analyze@v3
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "github/codeql-action", version: "3" });
+});
+
+Deno.test("githubActionsParser - skips local actions", () => {
+  const content = `
+jobs:
+  build:
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/my-action
+      - uses: ../shared-actions/build
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "actions/checkout", version: "4" });
+});
+
+Deno.test("githubActionsParser - skips Docker references", () => {
+  const content = `
+jobs:
+  build:
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker://alpine:3.8
+      - uses: docker://ghcr.io/owner/image:latest
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "actions/checkout", version: "4" });
+});
+
+Deno.test("githubActionsParser - skips SHA-pinned references", () => {
+  const content = `
+jobs:
+  build:
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/setup-node@v4
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "actions/setup-node", version: "4" });
+});
+
+Deno.test("githubActionsParser - deduplicates same action+version", () => {
+  const content = `
+jobs:
+  build:
+    steps:
+      - uses: actions/checkout@v4
+  test:
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 2);
+  assertEquals(deps[0], { name: "actions/checkout", version: "4" });
+  assertEquals(deps[1], { name: "actions/setup-node", version: "4" });
+});
+
+Deno.test("githubActionsParser - handles quoted uses values", () => {
+  const content = `
+jobs:
+  build:
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: 'actions/setup-node@v4'
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 2);
+  assertEquals(deps[0], { name: "actions/checkout", version: "4" });
+  assertEquals(deps[1], { name: "actions/setup-node", version: "4" });
+});
+
+Deno.test("githubActionsParser - handles empty workflow", () => {
+  const content = `
+name: Empty
+on: [push]
+jobs: {}
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 0);
+});
+
+Deno.test("parser metadata - github-actions", () => {
+  assertEquals(githubActionsParser.fileType, "workflow.yml");
+  assertEquals(githubActionsParser.registry, "github-actions");
+});
+
+Deno.test("parseDependencies - uses correct parser for github-actions", () => {
+  const content = `
+jobs:
+  build:
+    steps:
+      - uses: actions/checkout@v4
+`;
+  const deps = parseDependencies(content, "github-actions");
+  assertEquals(deps.length, 1);
+  assertEquals(deps[0], { name: "actions/checkout", version: "4" });
 });

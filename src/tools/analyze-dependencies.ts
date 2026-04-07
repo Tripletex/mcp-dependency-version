@@ -13,7 +13,7 @@ import { checkVulnerabilities } from "../utils/vulnerability.ts";
 
 const inputSchema = z.object({
   content: z.string().describe(
-    "File content (package.json, pom.xml, build.gradle, build.gradle.kts, requirements.txt, Cargo.toml, go.mod, deno.json, *.csproj, Dockerfile, docker-compose.yml, Gemfile, composer.json, pubspec.yaml, Package.swift)",
+    "File content (package.json, pom.xml, build.gradle, build.gradle.kts, requirements.txt, Cargo.toml, go.mod, deno.json, *.csproj, Dockerfile, docker-compose.yml, Gemfile, composer.json, pubspec.yaml, Package.swift, .github/workflows/*.yml)",
   ),
   registry: z.enum([
     "npm",
@@ -28,8 +28,9 @@ const inputSchema = z.object({
     "packagist",
     "pub",
     "swift",
+    "github-actions",
   ]).describe(
-    "Package registry to use. For Gradle files (build.gradle, build.gradle.kts), use 'maven'",
+    "Package registry to use. For Gradle files (build.gradle, build.gradle.kts), use 'maven'. For GitHub Actions workflow files, use 'github-actions'",
   ),
   checkVulnerabilities: z.boolean().optional().default(false).describe(
     "Also scan for vulnerabilities (slower)",
@@ -54,8 +55,9 @@ Supported file formats:
 - packagist: composer.json
 - pub: pubspec.yaml
 - swift: Package.swift
+- github-actions: .github/workflows/*.yml
 
-Note: For Gradle files, use registry='maven'. Variable references ($version, libs.xxx) are skipped.
+Note: For Gradle files, use registry='maven'. For GitHub Actions workflow files, use registry='github-actions'. Variable references ($version, libs.xxx) are skipped.
 
 Optionally checks for known vulnerabilities using the OSV database.
 

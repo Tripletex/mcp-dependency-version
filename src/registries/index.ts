@@ -15,6 +15,7 @@ export { rubygemsClient } from "./rubygems.ts";
 export { packagistClient } from "./packagist.ts";
 export { pubClient } from "./pub.ts";
 export { swiftClient } from "./swift.ts";
+export { githubActionsClient } from "./github-actions.ts";
 
 import type { Registry, RegistryClient } from "./types.ts";
 import { npmClient } from "./npm.ts";
@@ -29,6 +30,7 @@ import { rubygemsClient } from "./rubygems.ts";
 import { packagistClient } from "./packagist.ts";
 import { pubClient } from "./pub.ts";
 import { swiftClient } from "./swift.ts";
+import { githubActionsClient } from "./github-actions.ts";
 
 const clients: Record<Registry, RegistryClient> = {
   npm: npmClient,
@@ -43,6 +45,7 @@ const clients: Record<Registry, RegistryClient> = {
   packagist: packagistClient,
   pub: pubClient,
   swift: swiftClient,
+  "github-actions": githubActionsClient,
 };
 
 /**
@@ -92,4 +95,5 @@ export const supportedRegistries: Registry[] = [
   "packagist",
   "pub",
   "swift",
+  "github-actions",
 ];

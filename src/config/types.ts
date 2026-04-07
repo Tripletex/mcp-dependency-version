@@ -136,5 +136,12 @@ export const DEFAULT_CONFIG: Config = {
         default: true,
       },
     },
+    "github-actions": {
+      github: {
+        name: "GitHub",
+        url: "https://api.github.com",
+        default: true,
+      },
+    },
   },
 };

@@ -109,6 +109,11 @@ function getDocumentationUrls(
         docs: `https://swiftpackageindex.com/${packageName}`,
         repository: `https://github.com/${packageName}`,
       };
+    case "github-actions":
+      return {
+        docs: `https://github.com/marketplace/actions/${packageName.split("/")[1]}`,
+        repository: `https://github.com/${packageName}`,
+      };
     default:
       return {};
   }
@@ -364,6 +369,7 @@ export async function getPackageDocs(
       case "nuget":
       case "docker":
       case "swift":
+      case "github-actions":
         break;
     }
 
@@ -400,11 +406,12 @@ const inputSchema = z.object({
     "packagist",
     "pub",
     "swift",
+    "github-actions",
   ]).describe(
-    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker, rubygems, packagist, pub, swift)",
+    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker, rubygems, packagist, pub, swift, github-actions)",
   ),
   package: z.string().describe(
-    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)",
+    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo), GitHub Actions uses owner/repo (actions/checkout)",
   ),
   version: z.string().optional().describe(
     "Specific version to get documentation for (optional, defaults to latest)",
@@ -420,7 +427,7 @@ Supported registries: ${supportedRegistries.join(", ")}
 
 This tool fetches README content to help understand how to use a package.
 For npm, PyPI, and Cargo, README is fetched directly from the registry API.
-For Maven, Go, JSR, NuGet, Docker, and Swift, README is fetched from the package's GitHub repository.
+For Maven, Go, JSR, NuGet, Docker, Swift, and GitHub Actions, README is fetched from the package's GitHub repository.
 
 Returns:
 - README content (when available)
@@ -439,7 +446,8 @@ Examples:
 - rubygems: rails, devise
 - packagist: symfony/console, laravel/framework
 - pub: http, provider, flutter_bloc
-- swift: apple/swift-nio, Alamofire/Alamofire`,
+- swift: apple/swift-nio, Alamofire/Alamofire
+- github-actions: actions/checkout, github/codeql-action`,
     inputSchema.shape,
     async ({ registry, package: packageName, version }) => {
       const result = await getPackageDocs({
