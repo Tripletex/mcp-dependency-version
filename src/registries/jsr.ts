@@ -129,9 +129,13 @@ export class JsrClient implements RegistryClient {
       );
     }
 
-    const data = (await response.json()) as JsrVersionResponse[];
-    versionCache.set(cacheKey, data);
-    return data;
+    const data = (await response.json()) as
+      | JsrVersionResponse[]
+      | { items: JsrVersionResponse[] };
+    // JSR API returns { items: [...] } for paginated responses
+    const versions = Array.isArray(data) ? data : data.items;
+    versionCache.set(cacheKey, versions);
+    return versions;
   }
 
   async lookupVersion(
