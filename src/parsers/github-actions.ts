@@ -44,7 +44,9 @@ function parseActionReference(
   }
 
   // Strip leading "v" prefix for version normalization
-  const normalizedVersion = version.startsWith("v") ? version.slice(1) : version;
+  const normalizedVersion = version.startsWith("v")
+    ? version.slice(1)
+    : version;
 
   return { name, version: normalizedVersion };
 }

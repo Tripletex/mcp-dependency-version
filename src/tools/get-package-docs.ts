@@ -111,7 +111,9 @@ function getDocumentationUrls(
       };
     case "github-actions":
       return {
-        docs: `https://github.com/marketplace/actions/${packageName.split("/")[1]}`,
+        docs: `https://github.com/marketplace/actions/${
+          packageName.split("/")[1]
+        }`,
         repository: `https://github.com/${packageName}`,
       };
     default:
