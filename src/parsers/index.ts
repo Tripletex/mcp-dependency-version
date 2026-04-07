@@ -17,6 +17,7 @@ export { rubygemsParser } from "./rubygems.ts";
 export { packagistParser } from "./packagist.ts";
 export { pubParser } from "./pub.ts";
 export { swiftParser } from "./swift.ts";
+export { githubActionsParser } from "./github-actions.ts";
 
 import type { Registry } from "../registries/types.ts";
 import type { DependencyParser, ParsedDependency } from "./types.ts";
@@ -34,6 +35,7 @@ import { rubygemsParser } from "./rubygems.ts";
 import { packagistParser } from "./packagist.ts";
 import { pubParser } from "./pub.ts";
 import { swiftParser } from "./swift.ts";
+import { githubActionsParser } from "./github-actions.ts";
 
 const parsers: Record<Registry, DependencyParser> = {
   npm: npmParser,
@@ -48,6 +50,7 @@ const parsers: Record<Registry, DependencyParser> = {
   packagist: packagistParser,
   pub: pubParser,
   swift: swiftParser,
+  "github-actions": githubActionsParser,
 };
 
 /**
@@ -125,6 +128,8 @@ export function parseDependencies(
       return pubParser.parse(content);
     case "swift":
       return swiftParser.parse(content);
+    case "github-actions":
+      return githubActionsParser.parse(content);
     default:
       throw new Error(`Unsupported registry: ${registry}`);
   }

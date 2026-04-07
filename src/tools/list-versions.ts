@@ -22,11 +22,12 @@ const inputSchema = z.object({
     "packagist",
     "pub",
     "swift",
+    "github-actions",
   ]).describe(
-    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker, rubygems, packagist, pub, swift)",
+    "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker, rubygems, packagist, pub, swift, github-actions)",
   ),
   package: z.string().describe(
-    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo)",
+    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo), GitHub Actions uses owner/repo (actions/checkout)",
   ),
   limit: z.number().optional().default(20).describe(
     "Maximum number of versions to return (default: 20)",
@@ -72,6 +73,11 @@ Supported registries: ${supportedRegistries.join(", ")}`,
           ...(registry === "docker" && {
             securityNote:
               "Docker tags are NOT immutable. Use digest-pinned references (image@sha256:...) for supply chain security.",
+          }),
+          // Add security note for GitHub Actions registry
+          ...(registry === "github-actions" && {
+            securityNote:
+              "GitHub Action tags are NOT immutable. Use commit SHA-pinned references (owner/repo@sha) for supply chain security.",
           }),
         };
 

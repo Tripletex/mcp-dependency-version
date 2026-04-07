@@ -13,7 +13,8 @@ export type Registry =
   | "rubygems"
   | "packagist"
   | "pub"
-  | "swift";
+  | "swift"
+  | "github-actions";
 
 /**
  * Version information for a package
@@ -26,11 +27,11 @@ export interface VersionInfo {
   publishedAt?: Date;
   deprecated?: boolean;
   deprecationMessage?: string;
-  /** SHA256 digest for Docker images - provides immutable reference */
+  /** Immutable identifier: SHA256 digest for Docker images, commit SHA for GitHub Actions */
   digest?: string;
-  /** Secure reference using digest (e.g., nginx@sha256:abc123...) */
+  /** Secure pinned reference (e.g., nginx@sha256:abc123... or actions/checkout@abc123 # v4.2.0) */
   secureReference?: string;
-  /** Security notes about tag mutability and recommended practices */
+  /** Security notes about tag/version mutability and recommended practices */
   securityNotes?: string[];
 }
 
@@ -43,7 +44,7 @@ export interface VersionDetail {
   isPrerelease: boolean;
   isDeprecated: boolean;
   yanked?: boolean;
-  /** SHA256 digest for Docker images - provides immutable reference */
+  /** Immutable identifier: SHA256 digest for Docker images, commit SHA for GitHub Actions */
   digest?: string;
 }
 
