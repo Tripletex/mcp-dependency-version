@@ -87,7 +87,7 @@ export interface RegistryClient {
 export type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 /**
- * Vulnerability information from OSV
+ * Vulnerability information from OSV and/or NVD
  */
 export interface Vulnerability {
   id: string;
@@ -96,10 +96,13 @@ export interface Vulnerability {
   severity?: Severity;
   cvss?: number;
   cveIds?: string[];
+  cweIds?: string[];
   affectedVersions?: string;
   fixedVersions?: string[];
   publishedAt?: Date;
   references?: string[];
+  /** Which database(s) reported this vulnerability */
+  source?: "osv" | "nvd" | "osv+nvd";
 }
 
 /**
