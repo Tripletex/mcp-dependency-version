@@ -9,8 +9,8 @@ multiple package registries.
   JSR, NuGet, Docker Hub, RubyGems, Packagist, pub.dev, Swift PM, GitHub Actions
 - **Version lookup**: Get the latest stable (and optionally prerelease) versions
 - **Version listing**: List all available versions with metadata
-- **Vulnerability scanning**: Check packages against the OSV (Open Source
-  Vulnerabilities) database
+- **Vulnerability scanning**: Check packages against OSV and NVD databases with
+  deduplicated, CVSS-scored results
 - **Dependency analysis**: Analyze dependency files and check for updates
 - **Docker support**: Look up image tags and analyze
   Dockerfile/docker-compose.yml dependencies
@@ -399,6 +399,13 @@ List all available versions of a package.
 
 Check a package version for known security vulnerabilities.
 
+Queries both OSV and NVD in parallel for comprehensive coverage. Results are
+deduplicated by CVE ID — when a vulnerability appears in both databases, NVD's
+CVSS v3.1 score is used as the authoritative severity rating.
+
+Set the `NVD_API_KEY` environment variable for higher NVD rate limits (50 vs 5
+requests per 30 seconds). Request a free key at https://nvd.nist.gov/developers/request-an-api-key.
+
 **Parameters:**
 
 - `registry` (required): Package registry
@@ -429,8 +436,11 @@ Check a package version for known security vulnerabilities.
       "id": "GHSA-29mw-wpgm-hmr9",
       "summary": "Prototype Pollution in lodash",
       "severity": "HIGH",
+      "cvss": 7.2,
       "cveIds": ["CVE-2021-23337"],
-      "fixedVersions": ["4.17.21"]
+      "cweIds": ["CWE-94"],
+      "fixedVersions": ["4.17.21"],
+      "source": "osv+nvd"
     }
   ],
   "totalCount": 1,
@@ -648,6 +658,7 @@ src/
 | Swift          | `api.github.com/repos/{owner}/{repo}/tags`       | [docs](https://docs.github.com/en/rest/repos/repos)                      |
 | GitHub Actions | `api.github.com/repos/{owner}/{repo}/tags`       | [docs](https://docs.github.com/en/rest/repos/repos)                      |
 | OSV            | `api.osv.dev/v1/query`                           | [docs](https://osv.dev/docs/)                                            |
+| NVD            | `services.nvd.nist.gov/rest/json/cves/2.0`      | [docs](https://nvd.nist.gov/developers/vulnerabilities)                  |
 
 ## License
 
