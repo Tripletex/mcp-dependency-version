@@ -59,6 +59,20 @@ Examples:
 - swift: apple/swift-nio, Alamofire/Alamofire
 - github-actions: actions/checkout, github/codeql-action
 
+PRERELEASE / MILESTONE LINES: When the user is on a prerelease version
+(e.g., 'spring-ai-bom:2.0.0-M4', '1.0.0-RC1', '1.0.0-SNAPSHOT', '1.0.dev1'),
+the default 'latest stable' may be on an OLDER major (e.g., 1.1.4 vs 2.0.0-M4).
+To find updates within the same prerelease line, set BOTH:
+  - includePrerelease: true
+  - versionPrefix: "<major>." (e.g., "2." to stay in 2.x)
+The response then includes 'latestPrerelease' (or uses it as 'latestStable' when
+no stable exists in that line yet).
+
+STABLE VARIANT TAGS: Tags like '-jre', '-android' (Guava), '.RELEASE', '.Final',
+'.GA', '.SR3' (Spring/JBoss), '-incubating' (Apache) are NOT prereleases — they
+denote stable releases of variants. They are returned as 'latestStable' without
+needing includePrerelease.
+
 SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1.2.3" or "~1.2.3") to prevent dependency supply chain attacks.`,
     inputSchema.shape,
     async (
