@@ -14,10 +14,9 @@ import type {
 } from "./types.ts";
 import {
   filterByPrefix,
-  findLatestPrerelease,
-  findLatestStable,
   isPrerelease,
   parseVersion,
+  resolveLatestVersions,
   sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
@@ -244,32 +243,36 @@ export class DockerClient implements RegistryClient {
     const baseVersionTags = semverTags.map((t) => this.getBaseVersion(t));
 
     // Find latest stable version from semver tags
-    let latestStable = findLatestStable(baseVersionTags);
-
-    // If no semver-like stable version found, check for "latest" tag
-    if (!latestStable && !options?.versionPrefix) {
+    // Compute Docker-specific fallback: "latest" tag, or most recently updated
+    let dockerFallback: string | undefined;
+    if (!options?.versionPrefix) {
       if (tagNames.includes("latest")) {
-        latestStable = "latest";
+        dockerFallback = "latest";
       } else if (tagNames.length > 0) {
-        // Fall back to most recently updated tag
         const sortedTags = [...tags].sort((a, b) => {
           const dateA = a.last_updated ? new Date(a.last_updated).getTime() : 0;
           const dateB = b.last_updated ? new Date(b.last_updated).getTime() : 0;
           return dateB - dateA;
         });
-        latestStable = sortedTags[0].name;
+        dockerFallback = sortedTags[0].name;
       }
     }
 
-    if (!latestStable) {
+    const resolved = resolveLatestVersions(baseVersionTags, {
+      includePrerelease: options?.includePrerelease,
+      fallbackStable: dockerFallback,
+    });
+
+    if (!resolved) {
       throw new Error(
-        `No stable version found for '${imageName}'${
+        `No version found for '${imageName}'${
           options?.versionPrefix
             ? ` with prefix '${options.versionPrefix}'`
             : ""
         }`,
       );
     }
+    const latestStable = resolved.latestStable;
 
     // Find the tag data for the latest stable
     const latestTagData = tags.find(
@@ -297,17 +300,9 @@ export class DockerClient implements RegistryClient {
       securityNotes: generateDockerSecurityNotes(),
     };
 
-    // Include latest prerelease if requested
-    if (options?.includePrerelease) {
-      const prereleases = semverTags.filter((v) => isPrerelease(v));
-      const latestPre = findLatestPrerelease(prereleases);
-      if (
-        latestPre &&
-        latestStable !== "latest" &&
-        sortVersionsDescending([latestPre, latestStable])[0] === latestPre
-      ) {
-        result.latestPrerelease = latestPre;
-      }
+    // Use the resolved prerelease (only valid when latestStable is a real version)
+    if (resolved.latestPrerelease && latestStable !== "latest") {
+      result.latestPrerelease = resolved.latestPrerelease;
     }
 
     return result;

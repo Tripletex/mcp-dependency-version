@@ -6,10 +6,45 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getClient, getJsrPackageClient } from "../registries/index.ts";
-import type { Registry } from "../registries/types.ts";
+import type { LookupOptions, Registry } from "../registries/types.ts";
 import { parseDependencies } from "../parsers/index.ts";
-import { getUpdateType } from "../utils/version.ts";
+import {
+  compareVersions,
+  getUpdateType,
+  isPrerelease,
+} from "../utils/version.ts";
 import { checkVulnerabilities } from "../utils/vulnerability.ts";
+
+/**
+ * Extract the major version number from a version string.
+ * Handles `v1.2.3`, `1.2.3`, `1.2.3-M4`, `1.2.3.RELEASE`, etc.
+ * Returns null if no major version could be parsed.
+ */
+function extractMajor(version: string): string | null {
+  const v = version.startsWith("v") ? version.slice(1) : version;
+  const match = v.match(/^(\d+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Build lookup options for a dependency, automatically opting into prereleases
+ * within the same major version when the current version is itself a prerelease
+ * (e.g., `2.0.0-M4`, `1.0.0-RC1`). This avoids spurious "downgrade" suggestions
+ * when the user is intentionally on a non-stable line.
+ */
+function lookupOptionsForDependency(
+  currentVersion: string,
+): LookupOptions | undefined {
+  if (!isPrerelease(currentVersion)) return undefined;
+
+  const major = extractMajor(currentVersion);
+  if (!major) return { includePrerelease: true };
+
+  return {
+    includePrerelease: true,
+    versionPrefix: `${major}.`,
+  };
+}
 
 const inputSchema = z.object({
   content: z.string().describe(
@@ -60,6 +95,15 @@ Supported file formats:
 Note: For Gradle files, use registry='maven'. For GitHub Actions workflow files, use registry='github-actions'. Variable references ($version, libs.xxx) are skipped.
 
 Optionally checks for known vulnerabilities using OSV and NVD databases.
+
+PRERELEASE HANDLING: When a current dependency version is a prerelease/milestone
+(e.g., '2.0.0-M4', '1.0.0-RC1', '1.0.0-SNAPSHOT'), the analyzer automatically:
+  1. Restricts the lookup to the same major version (e.g., 2.x only)
+  2. Includes prereleases in candidate versions
+This avoids spurious downgrade suggestions when stable hasn't shipped in the
+prerelease line yet (Spring AI 2.0.0-M4 → would otherwise be told to downgrade
+to 1.1.4 stable). Stable variant tags like '.RELEASE', '.Final', '-jre',
+'-android' are NOT treated as prereleases.
 
 Returns a list of dependencies with:
 - Current version
@@ -147,17 +191,33 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
                   }
                 }
 
-                const versionInfo = await client.lookupVersion(lookupName);
-                const updateType = getUpdateType(
-                  dep.version,
-                  versionInfo.latestStable,
+                const lookupOptions = lookupOptionsForDependency(dep.version);
+                const versionInfo = await client.lookupVersion(
+                  lookupName,
+                  lookupOptions,
                 );
+
+                // When the current is a prerelease and we asked for prereleases,
+                // pick the highest of stable / prerelease as the comparison target
+                let targetVersion = versionInfo.latestStable;
+                if (
+                  lookupOptions?.includePrerelease &&
+                  versionInfo.latestPrerelease &&
+                  compareVersions(
+                      versionInfo.latestPrerelease,
+                      targetVersion,
+                    ) > 0
+                ) {
+                  targetVersion = versionInfo.latestPrerelease;
+                }
+
+                const updateType = getUpdateType(dep.version, targetVersion);
                 const updateAvailable = updateType !== "none";
 
                 const result: (typeof results)[0] = {
                   name: dep.name,
                   currentVersion: dep.version,
-                  latestVersion: versionInfo.latestStable,
+                  latestVersion: targetVersion,
                   updateAvailable,
                   updateType,
                   deprecated: versionInfo.deprecated,

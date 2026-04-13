@@ -17,9 +17,8 @@ import type {
 } from "./types.ts";
 import {
   filterByPrefix,
-  findLatestPrerelease,
-  findLatestStable,
   isPrerelease,
+  resolveLatestVersions,
   sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
@@ -197,11 +196,13 @@ export class GitHubActionsClient implements RegistryClient {
       }
     }
 
-    const latestStable = findLatestStable(versionStrings);
+    const resolved = resolveLatestVersions(versionStrings, {
+      includePrerelease: options?.includePrerelease,
+    });
 
-    if (!latestStable) {
+    if (!resolved) {
       throw new Error(
-        `No stable version found for '${packageName}'${
+        `No version found for '${packageName}'${
           options?.versionPrefix
             ? ` with prefix '${options.versionPrefix}'`
             : ""
@@ -211,21 +212,21 @@ export class GitHubActionsClient implements RegistryClient {
 
     // Find the tag with matching version to get commit SHA
     const matchingTag = semverTags.find(
-      (t) => stripVPrefix(t.name) === latestStable,
+      (t) => stripVPrefix(t.name) === resolved.latestStable,
     );
     const commitSha = matchingTag?.commit.sha;
 
     // Find release data for publish date
     const release = releases.find(
-      (r) => stripVPrefix(r.tag_name) === latestStable,
+      (r) => stripVPrefix(r.tag_name) === resolved.latestStable,
     );
 
-    const versionTag = matchingTag?.name ?? `v${latestStable}`;
+    const versionTag = matchingTag?.name ?? `v${resolved.latestStable}`;
 
     const result: VersionInfo = {
       packageName,
       registry: "github-actions",
-      latestStable,
+      latestStable: resolved.latestStable,
       publishedAt: release?.published_at
         ? new Date(release.published_at)
         : undefined,
@@ -242,14 +243,8 @@ export class GitHubActionsClient implements RegistryClient {
       ],
     };
 
-    if (options?.includePrerelease) {
-      const latestPre = findLatestPrerelease(versionStrings);
-      if (
-        latestPre &&
-        sortVersionsDescending([latestPre, latestStable])[0] === latestPre
-      ) {
-        result.latestPrerelease = latestPre;
-      }
+    if (resolved.latestPrerelease) {
+      result.latestPrerelease = resolved.latestPrerelease;
     }
 
     return result;

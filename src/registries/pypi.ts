@@ -13,10 +13,11 @@ import type {
   VersionInfo,
 } from "./types.ts";
 import {
+  compareVersions,
   filterByPrefix,
   findLatestPrerelease,
-  findLatestStable,
   isPrerelease,
+  resolveLatestVersions,
   sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
@@ -119,20 +120,40 @@ export class PyPIClient implements RegistryClient {
       versions = filterByPrefix(versions, options.versionPrefix);
     }
 
-    // Find latest stable version
+    // Pre-classify with Python-specific PEP 440 detection
+    // (more permissive than generic isPrerelease for some edge cases)
     const stableVersions = versions.filter(
       (v) => !this.isPythonPrerelease(v),
     );
-    let latestStable = findLatestStable(stableVersions);
+    const prereleaseVersions = versions.filter((v) =>
+      this.isPythonPrerelease(v)
+    );
 
-    // Fall back to info.version if no stable found without prefix
-    if (!latestStable && !options?.versionPrefix) {
-      latestStable = data.info.version;
+    // Combine for the resolver. Use PyPI's split-list logic for fallback handling.
+    const resolved = resolveLatestVersions(stableVersions, {
+      includePrerelease: options?.includePrerelease,
+      fallbackStable: !options?.versionPrefix ? data.info.version : undefined,
+    });
+
+    let latestStable: string | undefined = resolved?.latestStable;
+    let latestPrerelease: string | undefined = resolved?.latestPrerelease;
+
+    // Add Python-specific prerelease consideration
+    if (options?.includePrerelease) {
+      const latestPre = findLatestPrerelease(prereleaseVersions);
+      if (latestPre) {
+        if (!latestStable) {
+          latestStable = latestPre;
+          latestPrerelease = latestPre;
+        } else if (compareVersions(latestPre, latestStable) > 0) {
+          latestPrerelease = latestPre;
+        }
+      }
     }
 
     if (!latestStable) {
       throw new Error(
-        `No stable version found for '${packageName}'${
+        `No version found for '${packageName}'${
           options?.versionPrefix
             ? ` with prefix '${options.versionPrefix}'`
             : ""
@@ -150,18 +171,8 @@ export class PyPIClient implements RegistryClient {
       publishedAt: publishedAt ? new Date(publishedAt) : undefined,
     };
 
-    // Include latest prerelease if requested
-    if (options?.includePrerelease) {
-      const prereleaseVersions = versions.filter((v) =>
-        this.isPythonPrerelease(v)
-      );
-      const latestPre = findLatestPrerelease(prereleaseVersions);
-      if (
-        latestPre &&
-        sortVersionsDescending([latestPre, latestStable])[0] === latestPre
-      ) {
-        result.latestPrerelease = latestPre;
-      }
+    if (latestPrerelease) {
+      result.latestPrerelease = latestPrerelease;
     }
 
     return result;

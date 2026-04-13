@@ -13,9 +13,9 @@ import type {
 } from "./types.ts";
 import {
   filterByPrefix,
-  findLatestPrerelease,
   findLatestStable,
   isPrerelease,
+  resolveLatestVersions,
   sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
@@ -126,17 +126,22 @@ export class RubyGemsClient implements RegistryClient {
       }
     }
 
-    let latestStable = findLatestStable(versionNumbers);
-
-    // Fall back to the gem's reported latest version
-    if (!latestStable && !options?.versionPrefix) {
+    // Fetch fallback version from gem metadata if no stable in version list
+    // (only when no prefix filter, to avoid an extra HTTP call when scoped)
+    let fallbackStable: string | undefined;
+    if (!options?.versionPrefix && !findLatestStable(versionNumbers)) {
       const gem = await this.fetchGem(packageName, options?.repository);
-      latestStable = gem.version;
+      fallbackStable = gem.version;
     }
 
-    if (!latestStable) {
+    const resolved = resolveLatestVersions(versionNumbers, {
+      includePrerelease: options?.includePrerelease,
+      fallbackStable,
+    });
+
+    if (!resolved) {
       throw new Error(
-        `No stable version found for '${packageName}'${
+        `No version found for '${packageName}'${
           options?.versionPrefix
             ? ` with prefix '${options.versionPrefix}'`
             : ""
@@ -144,25 +149,21 @@ export class RubyGemsClient implements RegistryClient {
       );
     }
 
-    const versionData = versions.find((v) => v.number === latestStable);
+    const versionData = versions.find((v) =>
+      v.number === resolved.latestStable
+    );
 
     const result: VersionInfo = {
       packageName,
       registry: "rubygems",
-      latestStable,
+      latestStable: resolved.latestStable,
       publishedAt: versionData?.created_at
         ? new Date(versionData.created_at)
         : undefined,
     };
 
-    if (options?.includePrerelease) {
-      const latestPre = findLatestPrerelease(versionNumbers);
-      if (
-        latestPre &&
-        sortVersionsDescending([latestPre, latestStable])[0] === latestPre
-      ) {
-        result.latestPrerelease = latestPre;
-      }
+    if (resolved.latestPrerelease) {
+      result.latestPrerelease = resolved.latestPrerelease;
     }
 
     return result;
