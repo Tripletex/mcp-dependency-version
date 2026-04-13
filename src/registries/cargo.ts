@@ -14,9 +14,8 @@ import type {
 } from "./types.ts";
 import {
   filterByPrefix,
-  findLatestPrerelease,
-  findLatestStable,
   isPrerelease,
+  resolveLatestVersions,
   sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
@@ -102,17 +101,16 @@ export class CargoClient implements RegistryClient {
       }
     }
 
-    // Find latest stable version
-    let latestStable = findLatestStable(versions);
+    const resolved = resolveLatestVersions(versions, {
+      includePrerelease: options?.includePrerelease,
+      fallbackStable: !options?.versionPrefix
+        ? (data.crate.max_stable_version || data.crate.max_version)
+        : undefined,
+    });
 
-    // Fall back to max_stable_version if available
-    if (!latestStable && !options?.versionPrefix) {
-      latestStable = data.crate.max_stable_version || data.crate.max_version;
-    }
-
-    if (!latestStable) {
+    if (!resolved) {
       throw new Error(
-        `No stable version found for '${packageName}'${
+        `No version found for '${packageName}'${
           options?.versionPrefix
             ? ` with prefix '${options.versionPrefix}'`
             : ""
@@ -120,25 +118,20 @@ export class CargoClient implements RegistryClient {
       );
     }
 
-    const versionData = data.versions.find((v) => v.num === latestStable);
+    const versionData = data.versions.find((v) =>
+      v.num === resolved.latestStable
+    );
     const publishedAt = versionData?.created_at;
 
     const result: VersionInfo = {
       packageName: data.crate.name,
       registry: "cargo",
-      latestStable,
+      latestStable: resolved.latestStable,
       publishedAt: publishedAt ? new Date(publishedAt) : undefined,
     };
 
-    // Include latest prerelease if requested
-    if (options?.includePrerelease) {
-      const latestPre = findLatestPrerelease(versions);
-      if (
-        latestPre &&
-        sortVersionsDescending([latestPre, latestStable])[0] === latestPre
-      ) {
-        result.latestPrerelease = latestPre;
-      }
+    if (resolved.latestPrerelease) {
+      result.latestPrerelease = resolved.latestPrerelease;
     }
 
     return result;

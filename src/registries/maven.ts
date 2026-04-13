@@ -14,9 +14,8 @@ import type {
 } from "./types.ts";
 import {
   filterByPrefix,
-  findLatestPrerelease,
-  findLatestStable,
   isPrerelease,
+  resolveLatestVersions,
   sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
@@ -155,11 +154,13 @@ export class MavenClient implements RegistryClient {
       }
     }
 
-    const latestStable = findLatestStable(versionStrings);
+    const resolved = resolveLatestVersions(versionStrings, {
+      includePrerelease: options?.includePrerelease,
+    });
 
-    if (!latestStable) {
+    if (!resolved) {
       throw new Error(
-        `No stable version found for '${packageName}'${
+        `No version found for '${packageName}'${
           options?.versionPrefix
             ? ` with prefix '${options.versionPrefix}'`
             : ""
@@ -170,18 +171,11 @@ export class MavenClient implements RegistryClient {
     const result: VersionInfo = {
       packageName,
       registry: "maven",
-      latestStable,
+      latestStable: resolved.latestStable,
     };
 
-    // Include latest prerelease if requested
-    if (options?.includePrerelease) {
-      const latestPre = findLatestPrerelease(versionStrings);
-      if (
-        latestPre &&
-        sortVersionsDescending([latestPre, latestStable])[0] === latestPre
-      ) {
-        result.latestPrerelease = latestPre;
-      }
+    if (resolved.latestPrerelease) {
+      result.latestPrerelease = resolved.latestPrerelease;
     }
 
     return result;

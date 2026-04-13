@@ -13,9 +13,8 @@ import type {
 } from "./types.ts";
 import {
   filterByPrefix,
-  findLatestPrerelease,
-  findLatestStable,
   isPrerelease,
+  resolveLatestVersions,
   sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
@@ -94,16 +93,14 @@ export class PubClient implements RegistryClient {
       }
     }
 
-    let latestStable = findLatestStable(versionStrings);
+    const resolved = resolveLatestVersions(versionStrings, {
+      includePrerelease: options?.includePrerelease,
+      fallbackStable: !options?.versionPrefix ? data.latest.version : undefined,
+    });
 
-    // Fall back to pub's reported latest version
-    if (!latestStable && !options?.versionPrefix) {
-      latestStable = data.latest.version;
-    }
-
-    if (!latestStable) {
+    if (!resolved) {
       throw new Error(
-        `No stable version found for '${packageName}'${
+        `No version found for '${packageName}'${
           options?.versionPrefix
             ? ` with prefix '${options.versionPrefix}'`
             : ""
@@ -111,25 +108,21 @@ export class PubClient implements RegistryClient {
       );
     }
 
-    const versionData = data.versions.find((v) => v.version === latestStable);
+    const versionData = data.versions.find((v) =>
+      v.version === resolved.latestStable
+    );
 
     const result: VersionInfo = {
       packageName,
       registry: "pub",
-      latestStable,
+      latestStable: resolved.latestStable,
       publishedAt: versionData?.published
         ? new Date(versionData.published)
         : undefined,
     };
 
-    if (options?.includePrerelease) {
-      const latestPre = findLatestPrerelease(versionStrings);
-      if (
-        latestPre &&
-        sortVersionsDescending([latestPre, latestStable])[0] === latestPre
-      ) {
-        result.latestPrerelease = latestPre;
-      }
+    if (resolved.latestPrerelease) {
+      result.latestPrerelease = resolved.latestPrerelease;
     }
 
     return result;

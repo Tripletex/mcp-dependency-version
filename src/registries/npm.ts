@@ -14,9 +14,8 @@ import type {
 } from "./types.ts";
 import {
   filterByPrefix,
-  findLatestPrerelease,
-  findLatestStable,
   isPrerelease,
+  resolveLatestVersions,
   sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
@@ -98,17 +97,18 @@ export class NpmClient implements RegistryClient {
       versions = filterByPrefix(versions, options.versionPrefix);
     }
 
-    // Find latest stable version
-    let latestStable = findLatestStable(versions);
+    const resolved = resolveLatestVersions(versions, {
+      includePrerelease: options?.includePrerelease,
+      // Use npm dist-tag "latest" as fallback when no stable in version list
+      // (only when no prefix filter is applied)
+      fallbackStable: !options?.versionPrefix
+        ? data["dist-tags"].latest
+        : undefined,
+    });
 
-    // If no stable found with prefix, fall back to dist-tag
-    if (!latestStable && !options?.versionPrefix) {
-      latestStable = data["dist-tags"].latest;
-    }
-
-    if (!latestStable) {
+    if (!resolved) {
       throw new Error(
-        `No stable version found for '${packageName}'${
+        `No version found for '${packageName}'${
           options?.versionPrefix
             ? ` with prefix '${options.versionPrefix}'`
             : ""
@@ -116,27 +116,20 @@ export class NpmClient implements RegistryClient {
       );
     }
 
-    const versionData = data.versions[latestStable];
-    const publishedAt = data.time[latestStable];
+    const versionData = data.versions[resolved.latestStable];
+    const publishedAt = data.time[resolved.latestStable];
 
     const result: VersionInfo = {
       packageName,
       registry: "npm",
-      latestStable,
+      latestStable: resolved.latestStable,
       publishedAt: publishedAt ? new Date(publishedAt) : undefined,
       deprecated: !!versionData?.deprecated,
       deprecationMessage: versionData?.deprecated,
     };
 
-    // Include latest prerelease if requested
-    if (options?.includePrerelease) {
-      const latestPre = findLatestPrerelease(versions);
-      if (
-        latestPre &&
-        sortVersionsDescending([latestPre, latestStable])[0] === latestPre
-      ) {
-        result.latestPrerelease = latestPre;
-      }
+    if (resolved.latestPrerelease) {
+      result.latestPrerelease = resolved.latestPrerelease;
     }
 
     return result;

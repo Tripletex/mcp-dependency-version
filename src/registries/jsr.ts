@@ -18,9 +18,8 @@ import type {
 } from "./types.ts";
 import {
   filterByPrefix,
-  findLatestPrerelease,
-  findLatestStable,
   isPrerelease,
+  resolveLatestVersions,
   sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
@@ -156,17 +155,16 @@ export class JsrClient implements RegistryClient {
       versions = filterByPrefix(versions, options.versionPrefix);
     }
 
-    // Find latest stable version
-    let latestStable = findLatestStable(versions);
+    const resolved = resolveLatestVersions(versions, {
+      includePrerelease: options?.includePrerelease,
+      fallbackStable: !options?.versionPrefix
+        ? packageData.latestVersion ?? undefined
+        : undefined,
+    });
 
-    // If no stable found with prefix, fall back to package metadata
-    if (!latestStable && !options?.versionPrefix) {
-      latestStable = packageData.latestVersion ?? null;
-    }
-
-    if (!latestStable) {
+    if (!resolved) {
       throw new Error(
-        `No stable version found for '${packageName}'${
+        `No version found for '${packageName}'${
           options?.versionPrefix
             ? ` with prefix '${options.versionPrefix}'`
             : ""
@@ -176,28 +174,21 @@ export class JsrClient implements RegistryClient {
 
     // Find publish date for the latest version
     const latestVersionData = versionsData.find((v) =>
-      v.version === latestStable
+      v.version === resolved.latestStable
     );
 
     const result: VersionInfo = {
       packageName,
       registry: "jsr",
-      latestStable,
+      latestStable: resolved.latestStable,
       publishedAt: latestVersionData?.createdAt
         ? new Date(latestVersionData.createdAt)
         : undefined,
       deprecated: packageData.isArchived ?? false,
     };
 
-    // Include latest prerelease if requested
-    if (options?.includePrerelease) {
-      const latestPre = findLatestPrerelease(versions);
-      if (
-        latestPre &&
-        sortVersionsDescending([latestPre, latestStable])[0] === latestPre
-      ) {
-        result.latestPrerelease = latestPre;
-      }
+    if (resolved.latestPrerelease) {
+      result.latestPrerelease = resolved.latestPrerelease;
     }
 
     return result;
