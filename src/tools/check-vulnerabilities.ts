@@ -44,15 +44,16 @@ export function registerCheckVulnerabilitiesTool(server: McpServer): void {
     "check_vulnerabilities",
     `Check a package version for known security vulnerabilities.
 
-Uses the Open Source Vulnerabilities (OSV) database which aggregates vulnerabilities from:
-- GitHub Security Advisories
-- NVD (National Vulnerability Database)
-- PyPI Advisory Database
-- RustSec Advisory Database
-- Go Vulnerability Database
-- And more
+Queries two databases in parallel for comprehensive coverage:
+- OSV (Open Source Vulnerabilities): aggregates GitHub Security Advisories, PyPI, RustSec, Go, and more
+- NVD (National Vulnerability Database): authoritative CVSS v3.1 scores and CWE classifications
 
-Returns CVE IDs, severity ratings, affected version ranges, and available fixes.`,
+Results are deduplicated by CVE ID. When a vulnerability appears in both databases,
+NVD's CVSS score is used as the authoritative severity rating.
+
+Set the NVD_API_KEY environment variable for higher NVD rate limits (50 vs 5 requests/30s).
+
+Returns CVE IDs, CVSS scores, CWE IDs, severity ratings, affected version ranges, and available fixes.`,
     inputSchema.shape,
     async ({ registry, package: packageName, version, severityThreshold }) => {
       try {
@@ -73,11 +74,14 @@ Returns CVE IDs, severity ratings, affected version ranges, and available fixes.
             id: v.id,
             summary: v.summary,
             severity: v.severity,
+            cvss: v.cvss,
             cveIds: v.cveIds,
+            cweIds: v.cweIds,
             affectedVersions: v.affectedVersions,
             fixedVersions: v.fixedVersions,
             publishedAt: v.publishedAt?.toISOString(),
             references: v.references,
+            source: v.source,
           })),
           totalCount: vulns.length,
           hasVulnerabilities: vulns.length > 0,

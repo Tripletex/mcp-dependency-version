@@ -59,7 +59,7 @@ Supported file formats:
 
 Note: For Gradle files, use registry='maven'. For GitHub Actions workflow files, use registry='github-actions'. Variable references ($version, libs.xxx) are skipped.
 
-Optionally checks for known vulnerabilities using the OSV database.
+Optionally checks for known vulnerabilities using OSV and NVD databases.
 
 Returns a list of dependencies with:
 - Current version
