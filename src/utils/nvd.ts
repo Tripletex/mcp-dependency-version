@@ -12,11 +12,7 @@
  * Rate limits: 5 req/30s without API key, 50 req/30s with API key
  */
 
-import type {
-  Registry,
-  Severity,
-  Vulnerability,
-} from "../registries/types.ts";
+import type { Registry, Severity, Vulnerability } from "../registries/types.ts";
 import { vulnerabilityCache } from "./cache.ts";
 import { fetchWithHeaders } from "./http.ts";
 import { compareVersions } from "./version.ts";
@@ -169,8 +165,7 @@ export function cpeMatchesPackage(
  * @internal Exported for testing.
  */
 export function versionInRange(version: string, match: NvdCpeMatch): boolean {
-  const hasRangeConstraint =
-    match.versionStartIncluding !== undefined ||
+  const hasRangeConstraint = match.versionStartIncluding !== undefined ||
     match.versionStartExcluding !== undefined ||
     match.versionEndIncluding !== undefined ||
     match.versionEndExcluding !== undefined;
@@ -257,26 +252,27 @@ function parseNvdSeverity(
 ): { severity: Severity | undefined; cvss: number | undefined } {
   // Prefer CVSS v3.1
   if (cve.cve.metrics?.cvssMetricV31?.length) {
-    const metric =
-      cve.cve.metrics.cvssMetricV31.find((m) => m.type === "Primary") ||
+    const metric = cve.cve.metrics.cvssMetricV31.find((m) =>
+      m.type === "Primary"
+    ) ||
       cve.cve.metrics.cvssMetricV31[0];
 
     const baseSeverity = metric.cvssData.baseSeverity.toUpperCase();
-    const severity: Severity | undefined =
-      baseSeverity === "LOW" ||
+    const severity: Severity | undefined = baseSeverity === "LOW" ||
         baseSeverity === "MEDIUM" ||
         baseSeverity === "HIGH" ||
         baseSeverity === "CRITICAL"
-        ? baseSeverity
-        : undefined;
+      ? baseSeverity
+      : undefined;
 
     return { severity, cvss: metric.cvssData.baseScore };
   }
 
   // Fall back to CVSS v2
   if (cve.cve.metrics?.cvssMetricV2?.length) {
-    const metric =
-      cve.cve.metrics.cvssMetricV2.find((m) => m.type === "Primary") ||
+    const metric = cve.cve.metrics.cvssMetricV2.find((m) =>
+      m.type === "Primary"
+    ) ||
       cve.cve.metrics.cvssMetricV2[0];
     const score = metric.cvssData.baseScore;
 
@@ -358,12 +354,8 @@ function parseNvdVulnerability(cve: NvdCveItem): Vulnerability {
     cvss,
     cveIds: [cve.cve.id],
     fixedVersions: uniqueFixed.length > 0 ? uniqueFixed : undefined,
-    affectedVersions: rangeParts.length > 0
-      ? rangeParts.join(", ")
-      : undefined,
-    publishedAt: cve.cve.published
-      ? new Date(cve.cve.published)
-      : undefined,
+    affectedVersions: rangeParts.length > 0 ? rangeParts.join(", ") : undefined,
+    publishedAt: cve.cve.published ? new Date(cve.cve.published) : undefined,
     references: cve.cve.references?.map((r) => r.url),
     source: "nvd",
     cweIds: cweIds.length > 0 ? cweIds : undefined,
@@ -438,9 +430,7 @@ export async function queryNvd(
   const items = await fetchNvdForPackage(packageName, registry);
 
   return items
-    .filter((item) =>
-      cveAffectsVersion(item, packageName, version, registry)
-    )
+    .filter((item) => cveAffectsVersion(item, packageName, version, registry))
     .map(parseNvdVulnerability);
 }
 

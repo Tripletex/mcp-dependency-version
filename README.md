@@ -404,7 +404,8 @@ deduplicated by CVE ID — when a vulnerability appears in both databases, NVD's
 CVSS v3.1 score is used as the authoritative severity rating.
 
 Set the `NVD_API_KEY` environment variable for higher NVD rate limits (50 vs 5
-requests per 30 seconds). Request a free key at https://nvd.nist.gov/developers/request-an-api-key.
+requests per 30 seconds). Request a free key at
+https://nvd.nist.gov/developers/request-an-api-key.
 
 **Parameters:**
 
@@ -658,7 +659,7 @@ src/
 | Swift          | `api.github.com/repos/{owner}/{repo}/tags`       | [docs](https://docs.github.com/en/rest/repos/repos)                      |
 | GitHub Actions | `api.github.com/repos/{owner}/{repo}/tags`       | [docs](https://docs.github.com/en/rest/repos/repos)                      |
 | OSV            | `api.osv.dev/v1/query`                           | [docs](https://osv.dev/docs/)                                            |
-| NVD            | `services.nvd.nist.gov/rest/json/cves/2.0`      | [docs](https://nvd.nist.gov/developers/vulnerabilities)                  |
+| NVD            | `services.nvd.nist.gov/rest/json/cves/2.0`       | [docs](https://nvd.nist.gov/developers/vulnerabilities)                  |
 
 ## License
 
