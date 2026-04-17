@@ -238,6 +238,95 @@ async function fetchPubDescription(
 }
 
 /**
+ * Fetch description from JSR (package-level description + GitHub repo link)
+ */
+async function fetchJsrDescription(
+  packageName: string,
+): Promise<string | null> {
+  const repoConfig = getRepositoryConfig("jsr");
+  const match = packageName.match(/^@([^/]+)\/(.+)$/);
+  if (!match) return null;
+  const [, scope, name] = match;
+
+  try {
+    const response = await fetchWithHeaders(
+      `${repoConfig.url}/scopes/${scope}/packages/${name}`,
+      { auth: repoConfig.auth },
+    );
+    if (response.ok) {
+      const data = await response.json();
+      return data.description || null;
+    }
+  } catch {
+    // Fall through
+  }
+  return null;
+}
+
+/**
+ * Fetch description from NuGet registration catalog entry
+ */
+async function fetchNugetDescription(
+  packageName: string,
+): Promise<string | null> {
+  const repoConfig = getRepositoryConfig("nuget");
+
+  try {
+    const response = await fetchWithHeaders(
+      `${repoConfig.url}/registration5-gz-semver2/${packageName.toLowerCase()}/index.json`,
+      {
+        auth: repoConfig.auth,
+        headers: { "Accept-Encoding": "gzip" },
+      },
+    );
+    if (response.ok) {
+      const data = await response.json();
+      // Walk registration pages to find the last catalog entry (latest version)
+      const pages = data.items || [];
+      for (let i = pages.length - 1; i >= 0; i--) {
+        const items = pages[i].items;
+        if (items && items.length > 0) {
+          const entry = items[items.length - 1].catalogEntry;
+          if (entry?.description) {
+            return entry.description;
+          }
+        }
+      }
+    }
+  } catch {
+    // Fall through
+  }
+  return null;
+}
+
+/**
+ * Fetch full description (README) from Docker Hub
+ */
+async function fetchDockerDescription(
+  imageName: string,
+): Promise<string | null> {
+  const repoConfig = getRepositoryConfig("docker");
+  const cleanName = imageName.split(":")[0].split("@")[0];
+  const parts = cleanName.split("/");
+  const fullName = parts.length === 1 ? `library/${parts[0]}` : cleanName;
+
+  try {
+    const response = await fetchWithHeaders(
+      `${repoConfig.url}/v2/repositories/${fullName}`,
+      { auth: repoConfig.auth },
+    );
+    if (response.ok) {
+      const data = await response.json();
+      // full_description is the README content, description is a short summary
+      return data.full_description || data.description || null;
+    }
+  } catch {
+    // Fall through
+  }
+  return null;
+}
+
+/**
  * Fetch README from crates.io
  */
 async function fetchCargoReadme(packageName: string): Promise<string | null> {
@@ -364,12 +453,24 @@ export async function getPackageDocs(
         if (content) result.source = "registry";
         break;
 
+      case "jsr":
+        content = await fetchJsrDescription(packageName);
+        if (content) result.source = "registry";
+        break;
+
+      case "nuget":
+        content = await fetchNugetDescription(packageName);
+        if (content) result.source = "registry";
+        break;
+
+      case "docker":
+        content = await fetchDockerDescription(packageName);
+        if (content) result.source = "registry";
+        break;
+
       // These registries don't have README in API, skip to repository fetch
       case "maven":
       case "go":
-      case "jsr":
-      case "nuget":
-      case "docker":
       case "swift":
       case "github-actions":
         break;
@@ -428,8 +529,8 @@ export function registerGetPackageDocsTool(server: McpServer): void {
 Supported registries: ${supportedRegistries.join(", ")}
 
 This tool fetches README content to help understand how to use a package.
-For npm, PyPI, and Cargo, README is fetched directly from the registry API.
-For Maven, Go, JSR, NuGet, Docker, Swift, and GitHub Actions, README is fetched from the package's GitHub repository.
+For npm, PyPI, Cargo, RubyGems, Packagist, pub.dev, JSR, NuGet, and Docker, documentation is fetched directly from the registry API.
+For Maven, Go, Swift, and GitHub Actions, README is fetched from the package's GitHub repository.
 
 Returns:
 - README content (when available)
