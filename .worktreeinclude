@@ -1,0 +1,12 @@
+# Files to copy into claude worktrees
+# Only gitignored files matching these patterns are copied.
+# See: https://docs.anthropic.com/en/docs/claude-code/common-workflows#copy-gitignored-files-to-worktrees
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Installed dependency directories
+node_modules/
+vendor/
