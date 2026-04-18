@@ -81,3 +81,15 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Verify multi-arch manifest
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.tag.outputs.new_tag }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
+          echo "Inspecting manifest for ${IMAGE}"
+          MANIFEST=$(docker buildx imagetools inspect "${IMAGE}")
+          echo "${MANIFEST}"
+          echo "${MANIFEST}" | grep -q "linux/amd64" || { echo "ERROR: linux/amd64 missing from manifest"; exit 1; }
+          echo "${MANIFEST}" | grep -q "linux/arm64" || { echo "ERROR: linux/arm64 missing from manifest"; exit 1; }
+          echo "Multi-arch manifest verified: both linux/amd64 and linux/arm64 present."
