@@ -10,13 +10,13 @@ gate fails**. Run all four locally before pushing — `deno task check` and
 deno fmt --check    # CI gate 1 — formatting
 deno lint           # CI gate 2 — lint
 deno check main.ts  # CI gate 3 — type check
-deno test --allow-net  # CI gate 4 — tests
+deno test --allow-net --allow-read  # CI gate 4 — tests
 ```
 
 Or as a single command:
 
 ```bash
-deno fmt --check && deno lint && deno check main.ts && deno test --allow-net
+deno fmt --check && deno lint && deno check main.ts && deno test --allow-net --allow-read
 ```
 
 ### Formatting (the most common failure)
