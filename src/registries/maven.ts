@@ -200,14 +200,74 @@ export class MavenClient implements RegistryClient {
   }
 
   /**
-   * Fetch POM file for a specific version and extract SCM URL
+   * Extract the SCM URL from POM XML.
+   * Prefers <scm><url>, falls back to <scm><connection> and normalizes it.
    */
-  private async fetchScmUrl(
+  private parseScmUrl(pom: string): string | undefined {
+    const scmUrlMatch = pom.match(
+      /<scm>[\s\S]*?<url>([^<]+)<\/url>[\s\S]*?<\/scm>/,
+    );
+    if (scmUrlMatch) {
+      return scmUrlMatch[1].trim();
+    }
+
+    const scmConnMatch = pom.match(
+      /<scm>[\s\S]*?<connection>([^<]+)<\/connection>[\s\S]*?<\/scm>/,
+    );
+    if (scmConnMatch) {
+      const conn = scmConnMatch[1].trim();
+      const gitMatch = conn.match(/scm:git:(?:git@|https?:\/\/)(.+)/);
+      if (gitMatch) {
+        let url = gitMatch[1].replace(/\.git$/, "");
+        url = url.replace(/^([^:]+):/, "$1/");
+        if (!url.startsWith("http")) {
+          url = `https://${url}`;
+        }
+        return url;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Extract license names from a POM's <licenses> block.
+   * POMs can list multiple licenses; each has <name> and optional <url>.
+   * Returns undefined if the block is missing (license may be inherited from
+   * a parent POM, which this client does not resolve).
+   */
+  private parseLicenses(pom: string): string[] | undefined {
+    const block = pom.match(/<licenses>([\s\S]*?)<\/licenses>/);
+    if (!block) {
+      return undefined;
+    }
+
+    const names: string[] = [];
+    const licenseRegex = /<license>([\s\S]*?)<\/license>/g;
+    let match: RegExpExecArray | null;
+    while ((match = licenseRegex.exec(block[1])) !== null) {
+      const nameMatch = match[1].match(/<name>([^<]+)<\/name>/);
+      const urlMatch = match[1].match(/<url>([^<]+)<\/url>/);
+      const name = nameMatch?.[1].trim();
+      if (name) {
+        names.push(name);
+      } else if (urlMatch) {
+        names.push(urlMatch[1].trim());
+      }
+    }
+
+    return names.length > 0 ? names : undefined;
+  }
+
+  /**
+   * Fetch the POM artifact for a specific version and extract SCM URL + licenses.
+   */
+  private async fetchPomDetails(
     groupId: string,
     artifactId: string,
     version: string,
     repositoryName?: string,
-  ): Promise<string | undefined> {
+  ): Promise<{ scmUrl?: string; licenses?: string[] }> {
     const repoConfig = getRepositoryConfig("maven", repositoryName);
     const groupPath = this.groupIdToPath(groupId);
     const pomUrl =
@@ -218,42 +278,17 @@ export class MavenClient implements RegistryClient {
         auth: repoConfig.auth,
       });
       if (!response.ok) {
-        return undefined;
+        return {};
       }
 
       const pom = await response.text();
-
-      // Extract SCM URL from POM
-      // Try <scm><url> first, then <scm><connection>
-      const scmUrlMatch = pom.match(
-        /<scm>[\s\S]*?<url>([^<]+)<\/url>[\s\S]*?<\/scm>/,
-      );
-      if (scmUrlMatch) {
-        return scmUrlMatch[1].trim();
-      }
-
-      const scmConnMatch = pom.match(
-        /<scm>[\s\S]*?<connection>([^<]+)<\/connection>[\s\S]*?<\/scm>/,
-      );
-      if (scmConnMatch) {
-        // Convert scm:git:... format to URL
-        const conn = scmConnMatch[1].trim();
-        const gitMatch = conn.match(/scm:git:(?:git@|https?:\/\/)(.+)/);
-        if (gitMatch) {
-          let url = gitMatch[1].replace(/\.git$/, "");
-          // Convert git@github.com:user/repo to https://github.com/user/repo
-          url = url.replace(/^([^:]+):/, "$1/");
-          if (!url.startsWith("http")) {
-            url = `https://${url}`;
-          }
-          return url;
-        }
-      }
+      return {
+        scmUrl: this.parseScmUrl(pom),
+        licenses: this.parseLicenses(pom),
+      };
     } catch {
-      // Ignore errors fetching POM
+      return {};
     }
-
-    return undefined;
   }
 
   async getMetadata(
@@ -268,14 +303,12 @@ export class MavenClient implements RegistryClient {
       options?.repository,
     );
 
-    // Get version to fetch POM from
     const targetVersion = version || metadata.releaseVersion ||
       metadata.latestVersion;
 
-    // Try to get source repository from POM
-    let sourceRepo: string | undefined;
+    let pomDetails: { scmUrl?: string; licenses?: string[] } = {};
     if (targetVersion) {
-      sourceRepo = await this.fetchScmUrl(
+      pomDetails = await this.fetchPomDetails(
         groupId,
         artifactId,
         targetVersion,
@@ -286,11 +319,18 @@ export class MavenClient implements RegistryClient {
     return {
       name: packageName,
       registry: "maven",
-      repository: sourceRepo,
-      // homepage links to Maven Central for browsing
+      repository: pomDetails.scmUrl,
+      license: pomDetails.licenses?.join(", "),
       homepage:
         `https://central.sonatype.com/artifact/${groupId}/${artifactId}`,
     };
+  }
+
+  /**
+   * Exposed for tests: parse license names from raw POM XML.
+   */
+  static parseLicensesFromPom(pom: string): string[] | undefined {
+    return new MavenClient().parseLicenses(pom);
   }
 }
 

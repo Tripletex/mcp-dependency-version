@@ -11,6 +11,9 @@ multiple package registries.
 - **Version listing**: List all available versions with metadata
 - **Vulnerability scanning**: Check packages against OSV and NVD databases with
   deduplicated, CVSS-scored results
+- **License lookup**: Fetch the declared license for one or many packages in a
+  single call, with explicit status for unsupported registries or undeclared
+  licenses
 - **Dependency analysis**: Analyze dependency files and check for updates
 - **Docker support**: Look up image tags and analyze
   Dockerfile/docker-compose.yml dependencies
@@ -548,6 +551,127 @@ resolved without evaluating the build.
 }
 ```
 
+### get_licenses
+
+Look up the declared license for one or more packages in a single call. Results
+are enriched with SPDX metadata and copyleft classification from a baked-in
+dataset (see [License dataset](#license-dataset-datalicensesjson)).
+
+**Parameters:**
+
+- `packages` (required): Array of `{registry, package, version?}` entries.
+  Results preserve input order. Pass a single-element array for one package.
+
+**Example:**
+
+```json
+{
+  "packages": [
+    { "registry": "npm", "package": "lodash" },
+    { "registry": "cargo", "package": "serde" },
+    { "registry": "go", "package": "github.com/gin-gonic/gin" }
+  ]
+}
+```
+
+**Output (abbreviated):**
+
+```json
+{
+  "results": [
+    {
+      "registry": "npm",
+      "packageName": "lodash",
+      "license": "MIT",
+      "status": "found",
+      "spdx": [
+        {
+          "licenseId": "MIT",
+          "name": "MIT License",
+          "isOsiApproved": true,
+          "isDeprecated": false,
+          "category": "Permissive",
+          "isCopyleft": false,
+          "reference": "https://spdx.org/licenses/MIT.html"
+        }
+      ],
+      "isCopyleft": false
+    },
+    {
+      "registry": "cargo",
+      "packageName": "serde",
+      "license": "MIT OR Apache-2.0",
+      "status": "found",
+      "spdx": [
+        { "licenseId": "MIT", "category": "Permissive", "isCopyleft": false },
+        {
+          "licenseId": "Apache-2.0",
+          "category": "Permissive",
+          "isCopyleft": false
+        }
+      ],
+      "isCopyleft": false
+    },
+    {
+      "registry": "go",
+      "packageName": "github.com/gin-gonic/gin",
+      "license": null,
+      "status": "registry-unsupported",
+      "note": "The go registry does not expose license metadata through this tool. Check the package's source repository or documentation."
+    }
+  ],
+  "summary": {
+    "total": 3,
+    "withLicense": 2,
+    "notDeclared": 0,
+    "registryUnsupported": 1,
+    "errors": 0,
+    "copyleft": 0
+  },
+  "sources": [
+    {
+      "name": "SPDX License List",
+      "version": "3.28.0",
+      "license": "CC0-1.0",
+      "attribution": "..."
+    },
+    {
+      "name": "ScanCode LicenseDB",
+      "license": "CC-BY-4.0",
+      "attribution": "..."
+    }
+  ]
+}
+```
+
+**Status values:**
+
+- `found` — license string returned in `license`; `spdx[]` and `isCopyleft`
+  populated when the string resolves to one or more SPDX IDs
+- `not-declared` — the package did not declare a license in its metadata
+- `registry-unsupported` — the registry does not expose license metadata (`go`,
+  `docker`)
+- `error` — metadata fetch failed; see the `error` field
+
+**Enrichment fields** (present on `found` results):
+
+- `spdx[].licenseId` — canonical SPDX short identifier
+- `spdx[].isOsiApproved` — OSI-approved open source license
+- `spdx[].isDeprecated` — SPDX-deprecated identifier (use the replacement)
+- `spdx[].category` — ScanCode LicenseDB category (`Permissive`, `Copyleft`,
+  `Copyleft Limited`, `Public Domain`, `Proprietary Free`, etc.)
+- `spdx[].isCopyleft` — shortcut for `category` ∈ {`Copyleft`,
+  `Copyleft Limited`}
+- `isCopyleft` (top-level) — true if _any_ resolved license is copyleft
+
+A `not-declared` or `registry-unsupported` result does **not** mean the package
+is unlicensed. Check the package's source repository or documentation instead.
+
+Some registries return license strings that don't match a known SPDX ID
+(free-form text, deprecated aliases, custom names). In that case `spdx` is an
+empty array and `isCopyleft` is omitted — the raw `license` string is still
+returned verbatim.
+
 ### get_package_docs
 
 Get README documentation for a package.
@@ -603,6 +727,36 @@ Repository: https://github.com/lodash/lodash
 A modern JavaScript utility library delivering modularity, performance & extras.
 ...
 ```
+
+## License dataset (`data/licenses.json`)
+
+The `get_licenses` tool enriches each result with SPDX metadata and copyleft
+classification from a baked-in dataset at `data/licenses.json`. Using a
+committed snapshot keeps license lookups deterministic, offline-capable, and
+auditable in the repo.
+
+The dataset merges two upstream sources:
+
+| Source                 | URL                                                 | License   | Use                                                                                              |
+| ---------------------- | --------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------ |
+| **SPDX License List**  | https://spdx.org/licenses/licenses.json             | CC0-1.0   | Canonical SPDX IDs, names, OSI approval status                                                   |
+| **ScanCode LicenseDB** | https://scancode-licensedb.aboutcode.org/index.json | CC-BY-4.0 | License `category` (Permissive / Copyleft / Copyleft Limited / etc.) and copyleft classification |
+
+Both sources — and their full attribution strings — are embedded in the
+`sources[]` array at the root of `data/licenses.json` and echoed back on every
+`get_licenses` response, so downstream consumers carry the attribution required
+by ScanCode's CC-BY-4.0.
+
+### Refreshing the dataset
+
+```bash
+deno task update-licenses
+```
+
+This runs `scripts/update-licenses.ts`, which fetches both upstream lists,
+merges them, and rewrites `data/licenses.json`. Review the diff and commit — the
+upstream lists change only a few times per year. The script needs
+`--allow-net` + `--allow-write=data` (already set in the task).
 
 ## Development
 
