@@ -6,6 +6,7 @@ import { registerListVersionsTool } from "./src/tools/list-versions.ts";
 import { registerCheckVulnerabilitiesTool } from "./src/tools/check-vulnerabilities.ts";
 import { registerAnalyzeDependenciesTool } from "./src/tools/analyze-dependencies.ts";
 import { registerGetPackageDocsTool } from "./src/tools/get-package-docs.ts";
+import { registerGetLicensesTool } from "./src/tools/get-licenses.ts";
 
 const server = new McpServer({
   name: "mcp-dependency-version",
@@ -18,6 +19,7 @@ registerListVersionsTool(server);
 registerCheckVulnerabilitiesTool(server);
 registerAnalyzeDependenciesTool(server);
 registerGetPackageDocsTool(server);
+registerGetLicensesTool(server);
 
 // Start the server
 const transport = new StdioServerTransport();
