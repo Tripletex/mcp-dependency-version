@@ -52,6 +52,15 @@ interface JsrVersionResponse {
   createdAt?: string;
 }
 
+interface JsrVersionDetailResponse {
+  scope: string;
+  package: string;
+  version: string;
+  yanked?: boolean;
+  license?: string | null;
+  readmePath?: string | null;
+}
+
 /**
  * Parse a JSR package name into scope and name
  * @param packageName Format: "@scope/name" (e.g., "@std/path")
@@ -219,9 +228,44 @@ export class JsrClient implements RegistryClient {
     });
   }
 
+  /**
+   * Fetch the per-version detail endpoint.
+   * JSR exposes the declared license here (populated when the package was
+   * published with a `license` field in its deno.json/jsr.json).
+   */
+  private async fetchVersionDetail(
+    packageName: string,
+    version: string,
+    repositoryName?: string,
+  ): Promise<JsrVersionDetailResponse | undefined> {
+    const repoConfig = getRepositoryConfig("jsr", repositoryName);
+    const cacheKey =
+      `jsr:${repoConfig.url}:version-detail:${packageName}:${version}`;
+    const cached = versionCache.get(cacheKey);
+    if (cached) {
+      return cached as JsrVersionDetailResponse;
+    }
+
+    const { scope, name } = parseJsrPackageName(packageName);
+    const url =
+      `${repoConfig.url}/scopes/${scope}/packages/${name}/versions/${version}`;
+
+    try {
+      const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
+      if (!response.ok) {
+        return undefined;
+      }
+      const data = (await response.json()) as JsrVersionDetailResponse;
+      versionCache.set(cacheKey, data);
+      return data;
+    } catch {
+      return undefined;
+    }
+  }
+
   async getMetadata(
     packageName: string,
-    _version?: string,
+    version?: string,
     options?: { repository?: string },
   ): Promise<PackageMetadata> {
     const packageData = await this.fetchPackage(
@@ -236,10 +280,28 @@ export class JsrClient implements RegistryClient {
         `https://github.com/${packageData.githubRepository.owner}/${packageData.githubRepository.name}`;
     }
 
+    // Pull license from the per-version detail endpoint.
+    // JSR requires a license for packages published after early 2025, but the
+    // license field on the API is only populated when the publisher declared
+    // it in deno.json/jsr.json. Older releases may still be null.
+    const targetVersion = version ?? packageData.latestVersion;
+    let license: string | undefined;
+    if (targetVersion) {
+      const detail = await this.fetchVersionDetail(
+        packageName,
+        targetVersion,
+        options?.repository,
+      );
+      if (detail?.license) {
+        license = detail.license;
+      }
+    }
+
     return {
       name: packageName,
       registry: "jsr",
       description: packageData.description,
+      license,
       repository,
       homepage: `https://jsr.io/${packageName}`,
     };
