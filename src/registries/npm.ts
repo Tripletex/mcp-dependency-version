@@ -9,6 +9,7 @@ import type {
   PackageMetadata,
   Registry,
   RegistryClient,
+  VersionDependency,
   VersionDetail,
   VersionInfo,
 } from "./types.ts";
@@ -35,6 +36,10 @@ interface NpmPackageResponse {
       license?: string | { type: string };
       homepage?: string;
       repository?: { type?: string; url?: string } | string;
+      dependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+      optionalDependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
     }
   >;
   time: Record<string, string>;
@@ -184,6 +189,32 @@ export class NpmClient implements RegistryClient {
       homepage: versionData?.homepage ?? data.homepage,
       repository: repoUrl,
     };
+  }
+
+  async getVersionDependencies(
+    packageName: string,
+    version: string,
+    options?: { repository?: string },
+  ): Promise<VersionDependency[] | undefined> {
+    const data = await this.fetchPackage(packageName, options?.repository);
+    const versionData = data.versions[version];
+    if (!versionData) {
+      return undefined;
+    }
+
+    const out: VersionDependency[] = [];
+    const groups: Array<[VersionDependency["scope"], Record<string, string>]> =
+      [
+        ["runtime", versionData.dependencies ?? {}],
+        ["peer", versionData.peerDependencies ?? {}],
+        ["optional", versionData.optionalDependencies ?? {}],
+      ];
+    for (const [scope, deps] of groups) {
+      for (const [name, constraint] of Object.entries(deps)) {
+        out.push({ name, registry: "npm", constraint, scope });
+      }
+    }
+    return out;
   }
 }
 

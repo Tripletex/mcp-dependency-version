@@ -69,6 +69,21 @@ export interface LookupOptions {
 }
 
 /**
+ * A single dependency declared by a specific version of a package.
+ *
+ * `registry` is where the dependency itself lives, not the parent — e.g. a JSR
+ * package can declare an npm dependency, in which case `registry === "npm"`.
+ * `scope` distinguishes npm's dependency kinds; JSR packages flag everything
+ * as runtime since the registry does not draw the distinction.
+ */
+export interface VersionDependency {
+  name: string;
+  registry: Registry;
+  constraint: string;
+  scope?: "runtime" | "peer" | "optional" | "dev";
+}
+
+/**
  * Interface for registry clients
  */
 export interface RegistryClient {
@@ -79,6 +94,15 @@ export interface RegistryClient {
   ): Promise<VersionInfo>;
   listVersions(packageName: string): Promise<VersionDetail[]>;
   getMetadata(packageName: string, version?: string): Promise<PackageMetadata>;
+  /**
+   * List the dependencies declared by a specific published version of the
+   * package. Returns `undefined` for registries that do not expose
+   * version-level dependency metadata.
+   */
+  getVersionDependencies?(
+    packageName: string,
+    version: string,
+  ): Promise<VersionDependency[] | undefined>;
 }
 
 /**

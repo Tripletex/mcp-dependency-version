@@ -13,6 +13,7 @@ import type {
   PackageMetadata,
   Registry,
   RegistryClient,
+  VersionDependency,
   VersionDetail,
   VersionInfo,
 } from "./types.ts";
@@ -23,7 +24,7 @@ import {
   sortVersionsDescending,
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
-import { fetchWithHeaders } from "../utils/http.ts";
+import { fetchWithHeaders, fetchWithRetry } from "../utils/http.ts";
 import { getRepositoryConfig } from "../config/loader.ts";
 
 interface JsrPackageResponse {
@@ -59,6 +60,13 @@ interface JsrVersionDetailResponse {
   yanked?: boolean;
   license?: string | null;
   readmePath?: string | null;
+}
+
+interface JsrDependencyResponse {
+  kind: "jsr" | "npm";
+  name: string;
+  constraint: string;
+  path?: string;
 }
 
 /**
@@ -305,6 +313,47 @@ export class JsrClient implements RegistryClient {
       repository,
       homepage: `https://jsr.io/${packageName}`,
     };
+  }
+
+  async getVersionDependencies(
+    packageName: string,
+    version: string,
+    options?: { repository?: string },
+  ): Promise<VersionDependency[] | undefined> {
+    const repoConfig = getRepositoryConfig("jsr", options?.repository);
+    const cacheKey =
+      `jsr:${repoConfig.url}:version-deps:${packageName}:${version}`;
+    const cached = versionCache.get(cacheKey);
+    if (cached) {
+      return cached as VersionDependency[];
+    }
+
+    const { scope, name } = parseJsrPackageName(packageName);
+    const url =
+      `${repoConfig.url}/scopes/${scope}/packages/${name}/versions/${version}/dependencies`;
+
+    let response: Response;
+    try {
+      // Scan loops can issue one request per parent version, so honor 429 +
+      // Retry-After here. fetchWithRetry returns the final 429 once retries
+      // are exhausted; we treat that the same as any other non-OK response.
+      response = await fetchWithRetry(url, { auth: repoConfig.auth });
+    } catch {
+      return undefined;
+    }
+    if (!response.ok) {
+      return undefined;
+    }
+
+    const raw = (await response.json()) as JsrDependencyResponse[];
+    const deps: VersionDependency[] = raw.map((d) => ({
+      name: d.name,
+      registry: (d.kind === "jsr" ? "jsr" : "npm") as Registry,
+      constraint: d.constraint,
+      scope: "runtime",
+    }));
+    versionCache.set(cacheKey, deps);
+    return deps;
   }
 }
 
