@@ -5,7 +5,9 @@
  * It is rebuilt manually via `deno task update-licenses`.
  */
 
-import { dirname, fromFileUrl, join } from "@std/path";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export interface LicenseSource {
   name: string;
@@ -109,9 +111,9 @@ let cached: LicenseRegistry | undefined;
 export async function getLicenseRegistry(): Promise<LicenseRegistry> {
   if (cached) return cached;
 
-  const here = dirname(fromFileUrl(import.meta.url));
+  const here = dirname(fileURLToPath(import.meta.url));
   const dataPath = join(here, "..", "..", "data", "licenses.json");
-  const text = await Deno.readTextFile(dataPath);
+  const text = await readFile(dataPath, "utf8");
   const dataset = JSON.parse(text) as LicenseDataset;
   cached = new LicenseRegistry(dataset);
   return cached;

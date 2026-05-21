@@ -6,6 +6,10 @@
 import type { Config, RepositoryConfig } from "./types.ts";
 import type { Registry } from "../registries/types.ts";
 import { DEFAULT_CONFIG } from "./types.ts";
+import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import process from "node:process";
 
 /** Config file path - can be overridden via MCP_DEPENDENCY_VERSION_CONFIG env var */
 const DEFAULT_CONFIG_PATH = "~/.config/mcp-dependency-version/config.json";
@@ -17,7 +21,7 @@ let loadedConfig: Config | null = null;
  */
 function expandPath(path: string): string {
   if (path.startsWith("~/")) {
-    const home = Deno.env.get("HOME") || Deno.env.get("USERPROFILE") || "";
+    const home = process.env.HOME || process.env.USERPROFILE || homedir();
     return path.replace("~", home);
   }
   return path;
@@ -28,8 +32,13 @@ function expandPath(path: string): string {
  */
 function getConfigPath(): string {
   return expandPath(
-    Deno.env.get("MCP_DEPENDENCY_VERSION_CONFIG") || DEFAULT_CONFIG_PATH,
+    process.env.MCP_DEPENDENCY_VERSION_CONFIG || DEFAULT_CONFIG_PATH,
   );
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return error instanceof Error && "code" in error &&
+    error.code === "ENOENT";
 }
 
 /**
@@ -64,10 +73,10 @@ export async function loadConfig(): Promise<Config> {
   let userConfig: Partial<Config> = {};
 
   try {
-    const content = await Deno.readTextFile(configPath);
+    const content = await readFile(configPath, "utf8");
     userConfig = JSON.parse(content) as Partial<Config>;
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) {
+    if (!isNotFoundError(error)) {
       console.error(
         `Warning: Failed to load config from ${configPath}:`,
         error,
@@ -93,10 +102,10 @@ export function loadConfigSync(): Config {
   let userConfig: Partial<Config> = {};
 
   try {
-    const content = Deno.readTextFileSync(configPath);
+    const content = readFileSync(configPath, "utf8");
     userConfig = JSON.parse(content) as Partial<Config>;
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) {
+    if (!isNotFoundError(error)) {
       console.error(
         `Warning: Failed to load config from ${configPath}:`,
         error,

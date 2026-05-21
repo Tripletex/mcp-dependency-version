@@ -1,0 +1,36 @@
+{
+  "name": "mcp-dependency-version",
+  "version": "1.0.0",
+  "description": "MCP server for looking up package versions across multiple registries",
+  "type": "module",
+  "exports": "./main.ts",
+  "bin": {
+    "mcp-dependency-version": "./bin/mcp-dependency-version.js"
+  },
+  "files": [
+    "bin",
+    "data",
+    "src",
+    "main.ts",
+    "deno.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "bun run main.ts",
+    "check": "deno check main.ts",
+    "test": "deno test --allow-net --allow-read",
+    "lint": "deno lint",
+    "fmt": "deno fmt"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.25.3",
+    "tsx": "4.22.3",
+    "zod": "3.25.76"
+  },
+  "engines": {
+    "node": ">=18.18",
+    "bun": ">=1.2"
+  },
+  "license": "MIT"
+}

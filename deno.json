@@ -2,6 +2,7 @@
   "name": "mcp-dependency-version",
   "version": "1.0.0",
   "exports": "./main.ts",
+  "nodeModulesDir": "none",
   "tasks": {
     "start": "deno run --allow-net --allow-env --allow-read main.ts",
     "dev": "deno run --allow-net --allow-env --allow-read --watch main.ts",
