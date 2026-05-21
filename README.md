@@ -94,9 +94,47 @@ to make this easy.
 
 ### Prerequisites
 
-- [Deno](https://deno.land/) v2.x or later
+- [Node.js](https://nodejs.org/) v18.18 or later for `npx`
+- [Bun](https://bun.sh/) v1.2 or later for `bunx` or direct Bun runs
+- [Deno](https://deno.land/) v2.x or later for source-based Deno runs
 
-### Setup with Claude Desktop
+### Run with npx or bunx
+
+```bash
+npx -y mcp-dependency-version
+```
+
+```bash
+bunx --bun mcp-dependency-version
+```
+
+### Setup with Claude Desktop using npx
+
+```json
+{
+  "mcpServers": {
+    "mcp-dependency-version": {
+      "command": "npx",
+      "args": ["-y", "mcp-dependency-version"]
+    }
+  }
+}
+```
+
+### Setup with Claude Desktop using bunx
+
+```json
+{
+  "mcpServers": {
+    "mcp-dependency-version": {
+      "command": "bunx",
+      "args": ["--bun", "mcp-dependency-version"]
+    }
+  }
+}
+```
+
+### Setup with Claude Desktop using Deno
 
 Add to your Claude Desktop configuration file
 (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS,
@@ -119,7 +157,7 @@ Add to your Claude Desktop configuration file
 }
 ```
 
-### Setup with Claude Code CLI
+### Setup with Claude Code CLI using Deno
 
 ```bash
 claude mcp add mcp-dependency-version -- deno run --allow-net --allow-env --allow-read /path/to/mcp-dependency-version/main.ts
@@ -170,6 +208,11 @@ docker run --rm -i ghcr.io/tripletex/mcp-dependency-version:latest
 2. Run the server:
    ```bash
    deno task start
+   ```
+
+   Or run it with Bun:
+   ```bash
+   bun run main.ts
    ```
 
 ## Configuration
