@@ -94,11 +94,15 @@ to make this easy.
 
 ### Prerequisites
 
+Install one of these runtimes, depending on how you want to start the server:
+
 - [Node.js](https://nodejs.org/) v18.18 or later for `npx`
 - [Bun](https://bun.sh/) v1.2 or later for `bunx` or direct Bun runs
 - [Deno](https://deno.land/) v2.x or later for source-based Deno runs
 
 ### Run with npx or bunx
+
+After the package is published to npm:
 
 ```bash
 npx -y mcp-dependency-version
@@ -106,6 +110,132 @@ npx -y mcp-dependency-version
 
 ```bash
 bunx --bun mcp-dependency-version
+```
+
+From GitHub before npm publish:
+
+```bash
+npx -y --package github:Tripletex/mcp-dependency-version mcp-dependency-version
+```
+
+```bash
+bunx --bun github:Tripletex/mcp-dependency-version
+```
+
+These commands start an MCP stdio server, so direct terminal runs wait for MCP
+JSON-RPC input and do not print a prompt.
+
+### Setup with Claude Code CLI
+
+Choose one of these commands.
+
+Using the npm package after publish:
+
+```bash
+claude mcp add mcp-dependency-version -- npx -y mcp-dependency-version
+```
+
+Using GitHub before npm publish:
+
+```bash
+claude mcp add mcp-dependency-version -- npx -y --package github:Tripletex/mcp-dependency-version mcp-dependency-version
+```
+
+Using Bun after npm publish:
+
+```bash
+claude mcp add mcp-dependency-version -- bunx --bun mcp-dependency-version
+```
+
+Using Bun from GitHub before npm publish:
+
+```bash
+claude mcp add mcp-dependency-version -- bunx --bun github:Tripletex/mcp-dependency-version
+```
+
+Using Deno from a local checkout:
+
+```bash
+claude mcp add mcp-dependency-version -- deno run --allow-net --allow-env --allow-read /path/to/mcp-dependency-version/main.ts
+```
+
+### Setup with Codex CLI
+
+Choose one of these commands.
+
+Using the npm package after publish:
+
+```bash
+codex mcp add mcp-dependency-version -- npx -y mcp-dependency-version
+```
+
+Using GitHub before npm publish:
+
+```bash
+codex mcp add mcp-dependency-version -- npx -y --package github:Tripletex/mcp-dependency-version mcp-dependency-version
+```
+
+Using Bun after npm publish:
+
+```bash
+codex mcp add mcp-dependency-version -- bunx --bun mcp-dependency-version
+```
+
+Using Bun from GitHub before npm publish:
+
+```bash
+codex mcp add mcp-dependency-version -- bunx --bun github:Tripletex/mcp-dependency-version
+```
+
+Using Deno from a local checkout:
+
+```bash
+codex mcp add mcp-dependency-version -- deno run --allow-net --allow-env --allow-read /path/to/mcp-dependency-version/main.ts
+```
+
+### Setup with Codex config.toml
+
+Codex stores MCP configuration in `~/.codex/config.toml`. You can also use a
+project-scoped `.codex/config.toml` in trusted projects.
+
+Using the npm package after publish:
+
+```toml
+[mcp_servers."mcp-dependency-version"]
+command = "npx"
+args = ["-y", "mcp-dependency-version"]
+```
+
+Using GitHub before npm publish:
+
+```toml
+[mcp_servers."mcp-dependency-version"]
+command = "npx"
+args = ["-y", "--package", "github:Tripletex/mcp-dependency-version", "mcp-dependency-version"]
+```
+
+Using Bun after npm publish:
+
+```toml
+[mcp_servers."mcp-dependency-version"]
+command = "bunx"
+args = ["--bun", "mcp-dependency-version"]
+```
+
+Using Bun from GitHub before npm publish:
+
+```toml
+[mcp_servers."mcp-dependency-version"]
+command = "bunx"
+args = ["--bun", "github:Tripletex/mcp-dependency-version"]
+```
+
+Using Deno from a local checkout:
+
+```toml
+[mcp_servers."mcp-dependency-version"]
+command = "deno"
+args = ["run", "--allow-net", "--allow-env", "--allow-read", "/path/to/mcp-dependency-version/main.ts"]
 ```
 
 ### Setup with Claude Desktop using npx
@@ -155,12 +285,6 @@ Add to your Claude Desktop configuration file
     }
   }
 }
-```
-
-### Setup with Claude Code CLI using Deno
-
-```bash
-claude mcp add mcp-dependency-version -- deno run --allow-net --allow-env --allow-read /path/to/mcp-dependency-version/main.ts
 ```
 
 ### Setup with Docker
