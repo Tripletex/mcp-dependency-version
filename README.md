@@ -102,18 +102,6 @@ Install one of these runtimes, depending on how you want to start the server:
 
 ### Run with npx or bunx
 
-After the package is published to npm:
-
-```bash
-npx -y mcp-dependency-version
-```
-
-```bash
-bunx --bun mcp-dependency-version
-```
-
-From GitHub before npm publish:
-
 ```bash
 npx -y --package github:Tripletex/mcp-dependency-version mcp-dependency-version
 ```
@@ -129,25 +117,13 @@ JSON-RPC input and do not print a prompt.
 
 Choose one of these commands.
 
-Using the npm package after publish:
-
-```bash
-claude mcp add mcp-dependency-version -- npx -y mcp-dependency-version
-```
-
-Using GitHub before npm publish:
+Using npx:
 
 ```bash
 claude mcp add mcp-dependency-version -- npx -y --package github:Tripletex/mcp-dependency-version mcp-dependency-version
 ```
 
-Using Bun after npm publish:
-
-```bash
-claude mcp add mcp-dependency-version -- bunx --bun mcp-dependency-version
-```
-
-Using Bun from GitHub before npm publish:
+Using Bun:
 
 ```bash
 claude mcp add mcp-dependency-version -- bunx --bun github:Tripletex/mcp-dependency-version
@@ -163,25 +139,13 @@ claude mcp add mcp-dependency-version -- deno run --allow-net --allow-env --allo
 
 Choose one of these commands.
 
-Using the npm package after publish:
-
-```bash
-codex mcp add mcp-dependency-version -- npx -y mcp-dependency-version
-```
-
-Using GitHub before npm publish:
+Using npx:
 
 ```bash
 codex mcp add mcp-dependency-version -- npx -y --package github:Tripletex/mcp-dependency-version mcp-dependency-version
 ```
 
-Using Bun after npm publish:
-
-```bash
-codex mcp add mcp-dependency-version -- bunx --bun mcp-dependency-version
-```
-
-Using Bun from GitHub before npm publish:
+Using Bun:
 
 ```bash
 codex mcp add mcp-dependency-version -- bunx --bun github:Tripletex/mcp-dependency-version
@@ -198,15 +162,7 @@ codex mcp add mcp-dependency-version -- deno run --allow-net --allow-env --allow
 Codex stores MCP configuration in `~/.codex/config.toml`. You can also use a
 project-scoped `.codex/config.toml` in trusted projects.
 
-Using the npm package after publish:
-
-```toml
-[mcp_servers."mcp-dependency-version"]
-command = "npx"
-args = ["-y", "mcp-dependency-version"]
-```
-
-Using GitHub before npm publish:
+Using npx:
 
 ```toml
 [mcp_servers."mcp-dependency-version"]
@@ -214,15 +170,7 @@ command = "npx"
 args = ["-y", "--package", "github:Tripletex/mcp-dependency-version", "mcp-dependency-version"]
 ```
 
-Using Bun after npm publish:
-
-```toml
-[mcp_servers."mcp-dependency-version"]
-command = "bunx"
-args = ["--bun", "mcp-dependency-version"]
-```
-
-Using Bun from GitHub before npm publish:
+Using Bun:
 
 ```toml
 [mcp_servers."mcp-dependency-version"]
@@ -245,7 +193,12 @@ args = ["run", "--allow-net", "--allow-env", "--allow-read", "/path/to/mcp-depen
   "mcpServers": {
     "mcp-dependency-version": {
       "command": "npx",
-      "args": ["-y", "mcp-dependency-version"]
+      "args": [
+        "-y",
+        "--package",
+        "github:Tripletex/mcp-dependency-version",
+        "mcp-dependency-version"
+      ]
     }
   }
 }
@@ -258,7 +211,7 @@ args = ["run", "--allow-net", "--allow-env", "--allow-read", "/path/to/mcp-depen
   "mcpServers": {
     "mcp-dependency-version": {
       "command": "bunx",
-      "args": ["--bun", "mcp-dependency-version"]
+      "args": ["--bun", "github:Tripletex/mcp-dependency-version"]
     }
   }
 }
