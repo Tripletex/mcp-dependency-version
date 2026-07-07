@@ -236,7 +236,8 @@ export class GitHubActionsClient implements RegistryClient {
         : undefined,
       securityNotes: [
         "GitHub Action tags are NOT immutable. Tags can be force-pushed to point to different commits.",
-        "Use commit SHA-pinned references (owner/repo@sha) for supply chain security.",
+        "The commit SHA for this version is returned in the 'digest' field.",
+        "Use commit SHA-pinned references (owner/repo@<digest>) for supply chain security.",
         commitSha
           ? `Secure reference: ${packageName}@${commitSha} # ${versionTag}`
           : "Could not resolve commit SHA for this version.",
