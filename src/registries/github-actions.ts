@@ -251,6 +251,76 @@ export class GitHubActionsClient implements RegistryClient {
     return result;
   }
 
+  /**
+   * Resolve a git reference (branch, tag, or short SHA) to its current commit
+   * SHA. Uses the GitHub commits endpoint with the `.sha` media type, which
+   * returns the full 40-char SHA as plain text in a single request. Works for
+   * actions with no releases at all (unlike `lookupVersion`, which requires
+   * semver tags).
+   */
+  async resolveReference(
+    packageName: string,
+    reference: string,
+    options?: LookupOptions & { repository?: string },
+  ): Promise<VersionInfo> {
+    const apiUrl = this.getApiUrl(options?.repository);
+    const repoConfig = getRepositoryConfig(
+      "github-actions",
+      options?.repository,
+    );
+    const cacheKey =
+      `github-actions:${apiUrl}:${packageName}:commit:${reference}`;
+    let commitSha = versionCache.get(cacheKey) as string | undefined;
+
+    if (!commitSha) {
+      const url = `${apiUrl}/repos/${packageName}/commits/${
+        encodeURIComponent(reference)
+      }`;
+      const response = await fetchWithHeaders(url, {
+        auth: repoConfig.auth,
+        headers: { "Accept": "application/vnd.github.sha" },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(
+            `Reference '${reference}' not found for action '${packageName}'`,
+          );
+        }
+        throw new Error(
+          `GitHub API error: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      commitSha = (await response.text()).trim();
+      versionCache.set(cacheKey, commitSha);
+    }
+
+    // Classify the reference so the security notes use accurate wording.
+    // Both branches and tags are mutable on GitHub Actions, but "updating"
+    // means something different for each.
+    const refKind = isSemverTag(reference) ? "tag" : "branch";
+
+    return {
+      packageName,
+      registry: "github-actions",
+      // A branch has no version; echo the reference in the version slot.
+      latestStable: reference,
+      digest: commitSha,
+      secureReference: formatSecureReference(packageName, commitSha, reference),
+      isMutable: true,
+      resolvedReference: reference,
+      securityNotes: [
+        "GitHub Action branches and tags are NOT immutable. Branches move and tags can be force-pushed to point to different commits.",
+        `You are tracking the mutable ${refKind} '${reference}'. Its current commit SHA is returned in the 'digest' field.`,
+        `Pin to the commit SHA for supply chain security: ${packageName}@${commitSha} # ${reference}`,
+        refKind === "branch"
+          ? `Updating means re-resolving branch '${reference}' to its latest commit, not moving to a release.`
+          : `Tag '${reference}' can be force-pushed; re-resolve it to detect changes.`,
+      ],
+    };
+  }
+
   async listVersions(
     packageName: string,
     options?: { repository?: string },

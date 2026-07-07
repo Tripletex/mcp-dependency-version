@@ -420,7 +420,15 @@ Look up the latest version of a package.
   `github-actions`)
 - `package` (required): Package name
 - `includePrerelease` (optional): Include alpha/beta/rc versions
-- `versionPrefix` (optional): Filter versions by prefix (e.g., `"2."` for 2.x)
+- `versionPrefix` (optional): Filter to a semver version line and return the
+  newest match (e.g., `"2."` for 2.x). Mutually exclusive with
+  `versionReference`.
+- `versionReference` (optional): Resolve a floating, non-semver target to its
+  current concrete pin -- a git branch/ref (github-actions: `"main"`), or a
+  named dist-tag/channel (npm: `"next"`; docker: `"latest"`). Returns the
+  resolved version and, where supported, a commit SHA / `sha256:` digest in
+  `digest`, flagged `isMutable: true`. Supported for `github-actions`, `npm`,
+  and `docker`. Mutually exclusive with `versionPrefix`.
 
 **Example:**
 
@@ -473,8 +481,39 @@ Look up the latest version of a package.
   "secureReference": "actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.2.0",
   "securityNotes": [
     "GitHub Action tags are NOT immutable. Tags can be force-pushed to point to different commits.",
-    "Use commit SHA-pinned references (owner/repo@sha) for supply chain security.",
+    "The commit SHA for this version is returned in the 'digest' field.",
+    "Use commit SHA-pinned references (owner/repo@<digest>) for supply chain security.",
     "Secure reference: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.2.0"
+  ]
+}
+```
+
+**Resolving a floating reference (`versionReference`):**
+
+Resolve a GitHub Actions branch to its current commit SHA for pinning:
+
+```json
+{
+  "registry": "github-actions",
+  "package": "actions/checkout",
+  "versionReference": "main"
+}
+```
+
+```json
+{
+  "packageName": "actions/checkout",
+  "registry": "github-actions",
+  "latestStable": "main",
+  "digest": "b4ffde65f46336ab88eb53be808477a3936bae11",
+  "secureReference": "actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # main",
+  "isMutable": true,
+  "resolvedReference": "main",
+  "securityNotes": [
+    "GitHub Action branches and tags are NOT immutable. Branches move and tags can be force-pushed to point to different commits.",
+    "You are tracking the mutable branch 'main'. Its current commit SHA is returned in the 'digest' field.",
+    "Pin to the commit SHA for supply chain security: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # main",
+    "Updating means re-resolving branch 'main' to its latest commit, not moving to a release."
   ]
 }
 ```

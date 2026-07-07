@@ -308,6 +308,48 @@ export class DockerClient implements RegistryClient {
     return result;
   }
 
+  /**
+   * Resolve a Docker tag (e.g. "latest", "stable", "3-alpine") to the sha256
+   * digest it currently points to. Tags are mutable, so the result is flagged
+   * `isMutable`. Limited to the tags returned by the Docker Hub API page (same
+   * pagination constraint as `lookupVersion`).
+   */
+  async resolveReference(
+    imageName: string,
+    reference: string,
+    options?: LookupOptions & { repository?: string },
+  ): Promise<VersionInfo> {
+    const { tags } = await this.fetchTags(imageName, options?.repository, 100);
+    const tagData = tags.find((t) => t.name === reference);
+
+    if (!tagData) {
+      throw new Error(
+        `Tag '${reference}' not found for image '${imageName}'`,
+      );
+    }
+
+    const digest = tagData.digest;
+    const parsed = this.parseImageName(imageName);
+    const displayName = parsed.namespace === "library"
+      ? parsed.repository
+      : `${parsed.namespace}/${parsed.repository}`;
+
+    return {
+      packageName: imageName,
+      registry: "docker",
+      latestStable: reference,
+      publishedAt: tagData.last_updated
+        ? new Date(tagData.last_updated)
+        : undefined,
+      deprecated: tagData.tag_status === "stale",
+      digest,
+      secureReference: digest ? `${displayName}@${digest}` : undefined,
+      isMutable: true,
+      resolvedReference: reference,
+      securityNotes: generateDockerSecurityNotes(),
+    };
+  }
+
   async listVersions(
     imageName: string,
     options?: { repository?: string },
