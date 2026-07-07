@@ -3,6 +3,7 @@ import { GitHubActionsClient } from "./github-actions.ts";
 import { NpmClient } from "./npm.ts";
 import { DockerClient } from "./docker.ts";
 import { MavenClient } from "./maven.ts";
+import { SwiftClient } from "./swift.ts";
 import type { RegistryClient } from "./types.ts";
 
 const originalFetch = globalThis.fetch;
@@ -146,6 +147,44 @@ Deno.test("docker resolveReference - unknown tag throws", async () => {
       () => new DockerClient().resolveReference("nginx-docker-b", "missing"),
       Error,
       "Tag 'missing' not found",
+    );
+  } finally {
+    restoreFetch();
+  }
+});
+
+Deno.test("swift resolveReference - resolves branch to commit SHA with revision pin", async () => {
+  const sha = "c".repeat(40);
+  mockFetch((url) => {
+    assertStringIncludes(url, "/repos/apple/swift-nio/commits/main");
+    return new Response(sha, { status: 200 });
+  });
+  try {
+    const result = await new SwiftClient().resolveReference(
+      "apple/swift-nio",
+      "main",
+    );
+    assertEquals(result.digest, sha);
+    assertEquals(result.isMutable, true);
+    assertEquals(result.resolvedReference, "main");
+    assertEquals(
+      result.secureReference,
+      `.package(url: "https://github.com/apple/swift-nio.git", revision: "${sha}")`,
+    );
+    assertStringIncludes(result.securityNotes!.join(" "), "Package.resolved");
+    assertStringIncludes(result.securityNotes!.join(" "), "branch 'main'");
+  } finally {
+    restoreFetch();
+  }
+});
+
+Deno.test("swift resolveReference - 404 throws not found", async () => {
+  mockFetch(() => new Response("Not Found", { status: 404 }));
+  try {
+    await assertRejects(
+      () => new SwiftClient().resolveReference("apple/missing", "nope"),
+      Error,
+      "Reference 'nope' not found for Swift package",
     );
   } finally {
     restoreFetch();

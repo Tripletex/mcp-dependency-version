@@ -87,10 +87,11 @@ needing includePrerelease.
 
 FLOATING REFERENCES: To resolve a floating, non-semver target to its current
 concrete pin, use 'versionReference' instead of 'versionPrefix'. Examples:
-GitHub Actions branch (versionReference: "main") returns the current commit SHA
-in 'digest'; npm channel (versionReference: "next") returns the concrete version;
-Docker tag (versionReference: "latest") returns the sha256 digest. Such results
-are flagged isMutable: true. Supported for github-actions, npm, and docker.
+GitHub Actions or Swift branch (versionReference: "main") returns the current
+commit SHA in 'digest'; npm channel (versionReference: "next") returns the
+concrete version; Docker tag (versionReference: "latest") returns the sha256
+digest. Such results are flagged isMutable: true. Supported for github-actions,
+swift, npm, and docker.
 
 SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1.2.3" or "~1.2.3") to prevent dependency supply chain attacks.`,
     inputSchema.shape,
@@ -120,7 +121,7 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
             throw new Error(
               `Reference resolution is not supported for registry '${registry}'. ` +
                 "It is available for registries with floating references " +
-                "(github-actions, npm, docker).",
+                "(github-actions, swift, npm, docker).",
             );
           }
           result = await client.resolveReference(

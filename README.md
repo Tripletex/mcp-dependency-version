@@ -427,8 +427,8 @@ Look up the latest version of a package.
   current concrete pin -- a git branch/ref (github-actions: `"main"`), or a
   named dist-tag/channel (npm: `"next"`; docker: `"latest"`). Returns the
   resolved version and, where supported, a commit SHA / `sha256:` digest in
-  `digest`, flagged `isMutable: true`. Supported for `github-actions`, `npm`,
-  and `docker`. Mutually exclusive with `versionPrefix`.
+  `digest`, flagged `isMutable: true`. Supported for `github-actions`, `swift`,
+  `npm`, and `docker`. Mutually exclusive with `versionPrefix`.
 
 **Example:**
 
