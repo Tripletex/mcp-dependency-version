@@ -33,6 +33,15 @@ export interface VersionInfo {
   secureReference?: string;
   /** Security notes about tag/version mutability and recommended practices */
   securityNotes?: string[];
+  /**
+   * True when this result was produced by resolving a floating reference
+   * (a git branch, or a mutable named tag/channel). Signals that the pin
+   * will drift over time and that "updating" means re-resolving the
+   * reference rather than moving to a newer release.
+   */
+  isMutable?: boolean;
+  /** The floating reference that was resolved (e.g., "main", "next", "latest"). */
+  resolvedReference?: string;
 }
 
 /**
@@ -103,6 +112,21 @@ export interface RegistryClient {
     packageName: string,
     version: string,
   ): Promise<VersionDependency[] | undefined>;
+  /**
+   * Resolve a floating reference -- a git branch/ref, or a mutable named tag or
+   * channel -- to its current concrete target. Unlike `lookupVersion` (which
+   * finds the newest version), this dereferences a specific named pointer:
+   *   - github-actions: a branch/tag/sha -> commit SHA (in `digest`)
+   *   - npm: a dist-tag (latest/next/beta) -> concrete version
+   *   - docker: a tag (latest/stable) -> sha256 digest
+   * Implemented only by registries that have a floating-pointer concept.
+   * Results carry `isMutable: true`.
+   */
+  resolveReference?(
+    packageName: string,
+    reference: string,
+    options?: LookupOptions,
+  ): Promise<VersionInfo>;
 }
 
 /**

@@ -63,6 +63,17 @@ function stripVPrefix(tag: string): string {
   return tag.startsWith("v") ? tag.slice(1) : tag;
 }
 
+/**
+ * Format a commit-pinned Package.swift dependency line.
+ * e.g., .package(url: "https://github.com/apple/swift-nio.git", revision: "<sha>")
+ */
+function formatRevisionReference(
+  packageName: string,
+  commitSha: string,
+): string {
+  return `.package(url: "https://github.com/${packageName}.git", revision: "${commitSha}")`;
+}
+
 export class SwiftClient implements RegistryClient {
   readonly registry = "swift" as const satisfies Registry;
 
@@ -195,6 +206,12 @@ export class SwiftClient implements RegistryClient {
       );
     }
 
+    // Find the tag with matching version to get its commit SHA
+    const matchingTag = semverTags.find(
+      (t) => stripVPrefix(t.name) === resolved.latestStable,
+    );
+    const commitSha = matchingTag?.commit.sha;
+
     // Find release data for publish date
     const release = releases.find(
       (r) => stripVPrefix(r.tag_name) === resolved.latestStable,
@@ -207,6 +224,17 @@ export class SwiftClient implements RegistryClient {
       publishedAt: release?.published_at
         ? new Date(release.published_at)
         : undefined,
+      digest: commitSha,
+      secureReference: commitSha
+        ? formatRevisionReference(packageName, commitSha)
+        : undefined,
+      securityNotes: [
+        "Swift Package Manager version tags are git tags, which are mutable and can be moved to a different commit.",
+        commitSha
+          ? "The commit SHA for this version is returned in the 'digest' field."
+          : "Could not resolve a commit SHA for this version.",
+        "Commit 'Package.resolved' to lock the resolved revision for reproducible builds.",
+      ],
     };
 
     if (resolved.latestPrerelease) {
@@ -214,6 +242,68 @@ export class SwiftClient implements RegistryClient {
     }
 
     return result;
+  }
+
+  /**
+   * Resolve a git reference (branch, tag, or short SHA) to its current commit
+   * SHA for a Swift Package Manager dependency. SPM supports `.branch(...)` and
+   * `.revision(...)` dependencies, and records the resolved revision in
+   * `Package.resolved`.
+   */
+  async resolveReference(
+    packageName: string,
+    reference: string,
+    options?: LookupOptions & { repository?: string },
+  ): Promise<VersionInfo> {
+    const apiUrl = this.getApiUrl(options?.repository);
+    const repoConfig = getRepositoryConfig("swift", options?.repository);
+    const cacheKey = `swift:${apiUrl}:${packageName}:commit:${reference}`;
+    let commitSha = versionCache.get(cacheKey) as string | undefined;
+
+    if (!commitSha) {
+      const url = `${apiUrl}/repos/${packageName}/commits/${
+        encodeURIComponent(reference)
+      }`;
+      const response = await fetchWithHeaders(url, {
+        auth: repoConfig.auth,
+        headers: { "Accept": "application/vnd.github.sha" },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(
+            `Reference '${reference}' not found for Swift package '${packageName}'`,
+          );
+        }
+        throw new Error(
+          `GitHub API error: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      commitSha = (await response.text()).trim();
+      versionCache.set(cacheKey, commitSha);
+    }
+
+    const refKind = isSemverTag(reference) ? "tag" : "branch";
+
+    return {
+      packageName,
+      registry: "swift",
+      // A branch has no version; echo the reference in the version slot.
+      latestStable: reference,
+      digest: commitSha,
+      secureReference: formatRevisionReference(packageName, commitSha),
+      isMutable: true,
+      resolvedReference: reference,
+      securityNotes: [
+        `A Swift Package Manager dependency on ${refKind} '${reference}' is mutable; its resolved commit SHA is returned in the 'digest' field.`,
+        "Commit 'Package.resolved' to lock the resolved revision for reproducible builds.",
+        `For a hard pin in Package.swift, use .revision("${commitSha}").`,
+        refKind === "branch"
+          ? `Updating means re-resolving branch '${reference}' to its latest commit, not moving to a release.`
+          : `Tag '${reference}' can be moved to a different commit; re-resolve it to detect changes.`,
+      ],
+    };
   }
 
   async listVersions(

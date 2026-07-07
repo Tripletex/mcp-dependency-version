@@ -33,7 +33,19 @@ const inputSchema = z.object({
     "Include alpha/beta/rc versions in results",
   ),
   versionPrefix: z.string().optional().describe(
-    'Filter versions by prefix (e.g., "2." for 2.x versions)',
+    "Filter to a SEMVER version line, then return the newest match. " +
+      'Use for numeric/dotted targets: "2." for 2.x, "4.1." for 4.1.x. ' +
+      "Do NOT use for branch names or named tags (main, latest) - use " +
+      "versionReference instead. Mutually exclusive with versionReference.",
+  ),
+  versionReference: z.string().optional().describe(
+    "Resolve a floating, NON-semver target to its current concrete " +
+      'version/commit. Use for git branches/refs (github-actions: "main", ' +
+      '"master") and named dist-tags/channels (npm: "next", "beta"; docker: ' +
+      '"latest", "stable"). Returns the resolved version and, where supported, ' +
+      "a pinned digest/commit SHA in the 'digest' field. The result is MUTABLE " +
+      "(isMutable: true) - it will drift as the branch/tag moves. Mutually " +
+      "exclusive with versionPrefix.",
   ),
 });
 
@@ -73,17 +85,58 @@ STABLE VARIANT TAGS: Tags like '-jre', '-android' (Guava), '.RELEASE', '.Final',
 denote stable releases of variants. They are returned as 'latestStable' without
 needing includePrerelease.
 
+FLOATING REFERENCES: To resolve a floating, non-semver target to its current
+concrete pin, use 'versionReference' instead of 'versionPrefix'. Examples:
+GitHub Actions or Swift branch (versionReference: "main") returns the current
+commit SHA in 'digest'; npm channel (versionReference: "next") returns the
+concrete version; Docker tag (versionReference: "latest") returns the sha256
+digest. Such results are flagged isMutable: true. Supported for github-actions,
+swift, npm, and docker.
+
 SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1.2.3" or "~1.2.3") to prevent dependency supply chain attacks.`,
     inputSchema.shape,
     async (
-      { registry, package: packageName, includePrerelease, versionPrefix },
+      {
+        registry,
+        package: packageName,
+        includePrerelease,
+        versionPrefix,
+        versionReference,
+      },
     ) => {
       try {
+        if (versionReference && versionPrefix) {
+          throw new Error(
+            "versionReference and versionPrefix are mutually exclusive; " +
+              'use versionPrefix for semver lines (e.g. "4.") and ' +
+              'versionReference for floating refs (e.g. "main", "latest").',
+          );
+        }
+
         const client = getClient(registry as Registry);
-        const result = await client.lookupVersion(packageName, {
-          includePrerelease,
-          versionPrefix,
-        });
+
+        let result;
+        if (versionReference) {
+          if (!client.resolveReference) {
+            throw new Error(
+              `Reference resolution is not supported for registry '${registry}'. ` +
+                "It is available for registries with floating references " +
+                "(github-actions, swift, npm, docker).",
+            );
+          }
+          result = await client.resolveReference(
+            packageName,
+            versionReference,
+            {
+              includePrerelease,
+            },
+          );
+        } else {
+          result = await client.lookupVersion(packageName, {
+            includePrerelease,
+            versionPrefix,
+          });
+        }
 
         const output: Record<string, unknown> = {
           packageName: result.packageName,
@@ -113,6 +166,12 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
         }
         if (result.securityNotes && result.securityNotes.length > 0) {
           output.securityNotes = result.securityNotes;
+        }
+        if (result.isMutable) {
+          output.isMutable = true;
+        }
+        if (result.resolvedReference) {
+          output.resolvedReference = result.resolvedReference;
         }
 
         return {

@@ -21,8 +21,18 @@ let loadedConfig: Config | null = null;
  */
 function expandPath(path: string): string {
   if (path.startsWith("~/")) {
-    const home = process.env.HOME || process.env.USERPROFILE || homedir();
-    return path.replace("~", home);
+    // Resolving the home directory needs env/sys access. When it is not
+    // granted (e.g. tests without --allow-env), leave the path unexpanded;
+    // the subsequent file read will simply miss and defaults are used.
+    let home: string | undefined;
+    try {
+      home = process.env.HOME || process.env.USERPROFILE || homedir();
+    } catch {
+      home = undefined;
+    }
+    if (home) {
+      return path.replace("~", home);
+    }
   }
   return path;
 }
@@ -31,9 +41,16 @@ function expandPath(path: string): string {
  * Get the config file path
  */
 function getConfigPath(): string {
-  return expandPath(
-    process.env.MCP_DEPENDENCY_VERSION_CONFIG || DEFAULT_CONFIG_PATH,
-  );
+  // Reading the env var is optional: when env access is not granted (e.g. in
+  // tests run without --allow-env), fall back to the default path rather than
+  // failing.
+  let override: string | undefined;
+  try {
+    override = process.env.MCP_DEPENDENCY_VERSION_CONFIG;
+  } catch {
+    override = undefined;
+  }
+  return expandPath(override || DEFAULT_CONFIG_PATH);
 }
 
 function isNotFoundError(error: unknown): boolean {

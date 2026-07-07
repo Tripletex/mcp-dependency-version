@@ -140,6 +140,46 @@ export class NpmClient implements RegistryClient {
     return result;
   }
 
+  /**
+   * Resolve an npm dist-tag (channel) such as "latest", "next", or "beta" to
+   * the concrete version it currently points to. dist-tags are mutable
+   * pointers, so the result is flagged `isMutable`.
+   */
+  async resolveReference(
+    packageName: string,
+    reference: string,
+    options?: LookupOptions & { repository?: string },
+  ): Promise<VersionInfo> {
+    const data = await this.fetchPackage(packageName, options?.repository);
+    const distTags = data["dist-tags"] ?? {};
+    const version = distTags[reference];
+
+    if (!version) {
+      const available = Object.keys(distTags).sort().join(", ") || "none";
+      throw new Error(
+        `Dist-tag '${reference}' not found for '${packageName}'. Available tags: ${available}`,
+      );
+    }
+
+    const versionData = data.versions[version];
+    const publishedAt = data.time?.[version];
+
+    return {
+      packageName,
+      registry: "npm",
+      latestStable: version,
+      publishedAt: publishedAt ? new Date(publishedAt) : undefined,
+      deprecated: !!versionData?.deprecated,
+      deprecationMessage: versionData?.deprecated,
+      isMutable: true,
+      resolvedReference: reference,
+      securityNotes: [
+        `npm dist-tags are mutable pointers. '${reference}' currently resolves to ${version} but can be reassigned at any time.`,
+        `Pin to the exact version '${version}' instead of the '${reference}' tag for reproducible installs.`,
+      ],
+    };
+  }
+
   async listVersions(
     packageName: string,
     options?: { repository?: string },
