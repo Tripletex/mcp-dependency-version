@@ -43,7 +43,7 @@ Deno.test("matchActionTag - at separator", () => {
 
 Deno.test("matchActionTag - action name containing dashes", () => {
   assertEquals(
-    matchActionTag("slack-file-upload-v1.0.0", "slack-file-upload"),
+    matchActionTag("build-and-push-v1.0.0", "build-and-push"),
     {
       version: "1.0.0",
     },
@@ -65,8 +65,8 @@ Deno.test("matchActionTag - other action's tag does not match", () => {
 });
 
 Deno.test("matchActionTag - dashed action is not confused with a shorter name", () => {
-  // The tag belongs to "slack-file-upload", not to an action named "slack"
-  assertEquals(matchActionTag("slack-file-upload-v1.0.0", "slack"), null);
+  // The tag belongs to "build-and-push", not to an action named "build"
+  assertEquals(matchActionTag("build-and-push-v1.0.0", "build"), null);
 });
 
 Deno.test("matchActionTag - plain repo-level tag does not match", () => {

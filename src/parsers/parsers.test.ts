@@ -1068,17 +1068,17 @@ jobs:
   build:
     steps:
       - uses: org/actions/deploy@deploy-v1.2.3
-      - uses: org/actions/slack-file-upload@slack-file-upload-v1.0.0
-      - uses: org/actions/canary@canary@v2.0.0
+      - uses: org/actions/build-and-push@build-and-push-v1.0.0
+      - uses: org/actions/rollout@rollout@v2.0.0
 `;
   const deps = githubActionsParser.parse(content);
   assertEquals(deps.length, 3);
   assertEquals(deps[0], { name: "org/actions/deploy", version: "1.2.3" });
   assertEquals(deps[1], {
-    name: "org/actions/slack-file-upload",
+    name: "org/actions/build-and-push",
     version: "1.0.0",
   });
-  assertEquals(deps[2], { name: "org/actions/canary", version: "2.0.0" });
+  assertEquals(deps[2], { name: "org/actions/rollout", version: "2.0.0" });
 });
 
 Deno.test("githubActionsParser - skips SHA-pinned subpath actions", () => {
