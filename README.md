@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/logo.svg" alt="mcp-dependency-version Logo" width="200" height="200" />
+</p>
+
 # MCP Dependency Version
 
 A Model Context Protocol (MCP) server for looking up package versions across
