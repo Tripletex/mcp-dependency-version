@@ -10,10 +10,16 @@
  */
 
 import type { DependencyParser, ParsedDependency } from "./types.ts";
+import {
+  normalizeActionRef,
+  splitActionPackage,
+} from "../utils/action-tags.ts";
 
 /**
- * Parse an action reference string into owner/repo and version
- * Handles subpath actions like: github/codeql-action/init@v3 -> github/codeql-action@v3
+ * Parse an action reference string into a package name and version.
+ * Subpath (monorepo) actions keep their full path so per-action version
+ * tags can be resolved: org/actions/deploy@deploy-v1.2.3
+ * -> { name: "org/actions/deploy", version: "1.2.3" }
  */
 function parseActionReference(
   reference: string,
@@ -30,7 +36,7 @@ function parseActionReference(
 
   // Match: owner/repo@version or owner/repo/subpath@version
   const match = reference.match(
-    /^([a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)(?:\/[^@]+)?@(.+)$/,
+    /^([a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(?:\/[^@]+)?)@(.+)$/,
   );
   if (!match) {
     return null;
@@ -43,10 +49,10 @@ function parseActionReference(
     return null;
   }
 
-  // Strip leading "v" prefix for version normalization
-  const normalizedVersion = version.startsWith("v")
-    ? version.slice(1)
-    : version;
+  // Strip a monorepo action prefix (<action>-v1.2.3 / <action>@v1.2.3)
+  // and the leading "v" for version normalization
+  const { actionPath } = splitActionPackage(name);
+  const normalizedVersion = normalizeActionRef(version, actionPath);
 
   return { name, version: normalizedVersion };
 }

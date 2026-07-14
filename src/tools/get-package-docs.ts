@@ -514,7 +514,7 @@ const inputSchema = z.object({
     "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker, rubygems, packagist, pub, swift, github-actions)",
   ),
   package: z.string().describe(
-    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo), GitHub Actions uses owner/repo (actions/checkout)",
+    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo), GitHub Actions uses owner/repo (actions/checkout) or owner/repo/path for monorepo actions (org/actions/deploy)",
   ),
   version: z.string().optional().describe(
     "Specific version to get documentation for (optional, defaults to latest)",
@@ -550,7 +550,7 @@ Examples:
 - packagist: symfony/console, laravel/framework
 - pub: http, provider, flutter_bloc
 - swift: apple/swift-nio, Alamofire/Alamofire
-- github-actions: actions/checkout, github/codeql-action`,
+- github-actions: actions/checkout, github/codeql-action/init, org/actions/deploy`,
     inputSchema.shape,
     async ({ registry, package: packageName, version }) => {
       const result = await getPackageDocs({

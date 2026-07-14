@@ -1054,8 +1054,42 @@ jobs:
       - uses: github/codeql-action/analyze@v3
 `;
   const deps = githubActionsParser.parse(content);
-  assertEquals(deps.length, 1);
-  assertEquals(deps[0], { name: "github/codeql-action", version: "3" });
+  assertEquals(deps.length, 2);
+  assertEquals(deps[0], { name: "github/codeql-action/init", version: "3" });
+  assertEquals(deps[1], {
+    name: "github/codeql-action/analyze",
+    version: "3",
+  });
+});
+
+Deno.test("githubActionsParser - normalizes monorepo action-prefixed versions", () => {
+  const content = `
+jobs:
+  build:
+    steps:
+      - uses: org/actions/deploy@deploy-v1.2.3
+      - uses: org/actions/slack-file-upload@slack-file-upload-v1.0.0
+      - uses: org/actions/canary@canary@v2.0.0
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 3);
+  assertEquals(deps[0], { name: "org/actions/deploy", version: "1.2.3" });
+  assertEquals(deps[1], {
+    name: "org/actions/slack-file-upload",
+    version: "1.0.0",
+  });
+  assertEquals(deps[2], { name: "org/actions/canary", version: "2.0.0" });
+});
+
+Deno.test("githubActionsParser - skips SHA-pinned subpath actions", () => {
+  const content = `
+jobs:
+  build:
+    steps:
+      - uses: org/actions/deploy@a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+`;
+  const deps = githubActionsParser.parse(content);
+  assertEquals(deps.length, 0);
 });
 
 Deno.test("githubActionsParser - skips local actions", () => {
