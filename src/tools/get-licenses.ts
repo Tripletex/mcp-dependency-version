@@ -190,7 +190,7 @@ const packageSchema = z.object({
     "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker, rubygems, packagist, pub, swift, github-actions)",
   ),
   package: z.string().describe(
-    "Package name. Maven uses groupId:artifactId, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo), GitHub Actions uses owner/repo (actions/checkout)",
+    "Package name. Maven uses groupId:artifactId, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo), GitHub Actions uses owner/repo (actions/checkout) or owner/repo/path for monorepo actions (org/actions/deploy)",
   ),
   version: z.string().optional().describe(
     "Specific version to inspect (optional, defaults to latest)",

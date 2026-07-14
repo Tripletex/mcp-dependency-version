@@ -5,6 +5,8 @@
  */
 
 import type {
+  DigestMatch,
+  DigestResolution,
   LookupOptions,
   PackageMetadata,
   Registry,
@@ -23,12 +25,54 @@ import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
 import { getRepositoryConfig } from "../config/loader.ts";
 
-interface DockerHubTagResult {
+interface DockerHubTagImage {
+  digest?: string;
+  architecture?: string;
+  os?: string;
+}
+
+export interface DockerHubTagResult {
   name: string;
   full_size?: number;
   last_updated?: string;
   tag_status?: string;
   digest?: string;
+  images?: DockerHubTagImage[];
+}
+
+/**
+ * Normalize a Docker digest for comparison: lowercase, with the
+ * "sha256:" prefix added when the caller passed only the hex part.
+ */
+export function normalizeDockerDigest(digest: string): string {
+  const lower = digest.toLowerCase();
+  return lower.includes(":") ? lower : `sha256:${lower}`;
+}
+
+/**
+ * Find the tags matching a digest. A digest can match at two levels:
+ * the tag's manifest-list digest (what `image@sha256:...` pins resolve
+ * through) or a per-architecture image digest (what `docker pull` on a
+ * specific platform reports). Per-architecture matches carry the
+ * architecture in `detail`.
+ */
+export function matchDockerTagsByDigest(
+  tags: DockerHubTagResult[],
+  digest: string,
+): { tag: DockerHubTagResult; architecture?: string }[] {
+  const needle = normalizeDockerDigest(digest);
+  const matches: { tag: DockerHubTagResult; architecture?: string }[] = [];
+  for (const tag of tags) {
+    if (tag.digest?.toLowerCase() === needle) {
+      matches.push({ tag });
+      continue;
+    }
+    const image = tag.images?.find((i) => i.digest?.toLowerCase() === needle);
+    if (image) {
+      matches.push({ tag, architecture: image.architecture });
+    }
+  }
+  return matches;
 }
 
 interface DockerHubTagsResponse {
@@ -347,6 +391,57 @@ export class DockerClient implements RegistryClient {
       isMutable: true,
       resolvedReference: reference,
       securityNotes: generateDockerSecurityNotes(),
+    };
+  }
+
+  /**
+   * Reverse-resolve a digest pin (image@sha256:...) to the tag(s) it
+   * corresponds to. One digest commonly maps to several tags (e.g.
+   * "1.27.3", "1.27", "latest"), which tells the caller exactly which
+   * release their pin is and which floating tags currently agree with it.
+   */
+  async resolveDigest(
+    imageName: string,
+    digest: string,
+    options?: { repository?: string },
+  ): Promise<DigestResolution> {
+    if (!/^(sha256:)?[a-f0-9]{64}$/i.test(digest)) {
+      throw new Error(
+        `'${digest}' is not a Docker digest. Provide the full sha256 ` +
+          "digest (sha256:<64 hex chars>).",
+      );
+    }
+
+    const normalized = normalizeDockerDigest(digest);
+    const { tags } = await this.fetchTags(imageName, options?.repository, 100);
+
+    const matches: DigestMatch[] = matchDockerTagsByDigest(tags, normalized)
+      .map(({ tag, architecture }) => ({
+        reference: tag.name,
+        version: this.isSemverLike(tag.name) ? tag.name : undefined,
+        detail: architecture
+          ? `matches the ${architecture} image digest, not the manifest-list digest`
+          : undefined,
+      }));
+
+    const versions = sortVersionsDescending(
+      matches.flatMap((m) => (m.version ? [m.version] : [])),
+    );
+
+    return {
+      packageName: imageName,
+      registry: "docker",
+      digest: normalized,
+      matches,
+      pinnedVersion: versions[0],
+      notes: matches.length === 0
+        ? [
+          `No tag among the ${tags.length} most recently updated tags has ` +
+          `this digest. The pin may be a per-architecture digest of an ` +
+          "older image, or the tag that produced it has since been " +
+          "updated to a different image.",
+        ]
+        : undefined,
     };
   }
 

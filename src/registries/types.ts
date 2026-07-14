@@ -127,6 +127,49 @@ export interface RegistryClient {
     reference: string,
     options?: LookupOptions,
   ): Promise<VersionInfo>;
+  /**
+   * Reverse-resolve a digest pin to the version(s) it corresponds to:
+   *   - github-actions / swift: a commit SHA (full or >= 7-char prefix)
+   *     -> the version tag(s) pointing at that commit
+   *   - docker: a sha256 manifest digest -> the tag(s) with that digest
+   * Implemented only by registries whose reference format supports
+   * digest pinning.
+   */
+  resolveDigest?(
+    packageName: string,
+    digest: string,
+    options?: { repository?: string },
+  ): Promise<DigestResolution>;
+}
+
+/**
+ * A single tag/version matching a reverse digest lookup
+ */
+export interface DigestMatch {
+  /** The raw tag name that matches the digest */
+  reference: string;
+  /** Normalized version, when the tag versions this package */
+  version?: string;
+  /** Extra match context, e.g. the architecture of a per-arch Docker digest */
+  detail?: string;
+}
+
+/**
+ * Result of a reverse digest lookup (see RegistryClient.resolveDigest)
+ */
+export interface DigestResolution {
+  packageName: string;
+  registry: Registry;
+  /** The digest that was searched (normalized) */
+  digest: string;
+  /** Tags/versions matching the digest; empty when nothing matches */
+  matches: DigestMatch[];
+  /**
+   * The highest version among the matches, when any match carries a
+   * version. This is "the version you are pinned to".
+   */
+  pinnedVersion?: string;
+  notes?: string[];
 }
 
 /**

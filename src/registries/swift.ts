@@ -5,6 +5,7 @@
  */
 
 import type {
+  DigestResolution,
   LookupOptions,
   PackageMetadata,
   Registry,
@@ -20,7 +21,11 @@ import {
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
-import { getRepositoryConfig } from "../config/loader.ts";
+import { isCommitShaLike, matchTagsByCommitSha } from "../utils/action-tags.ts";
+import {
+  type ResolvedGitHubRepository,
+  resolveGitHubRepository,
+} from "../config/github.ts";
 
 interface GitHubTag {
   name: string;
@@ -77,25 +82,26 @@ function formatRevisionReference(
 export class SwiftClient implements RegistryClient {
   readonly registry = "swift" as const satisfies Registry;
 
-  private getApiUrl(repositoryName?: string): string {
-    const repoConfig = getRepositoryConfig("swift", repositoryName);
-    return repoConfig.url;
+  private resolveRepo(
+    packageName: string,
+    repositoryName?: string,
+  ): ResolvedGitHubRepository {
+    return resolveGitHubRepository("swift", packageName, repositoryName);
   }
 
   private async fetchTags(
     packageName: string,
     repositoryName?: string,
   ): Promise<GitHubTag[]> {
-    const apiUrl = this.getApiUrl(repositoryName);
-    const repoConfig = getRepositoryConfig("swift", repositoryName);
-    const cacheKey = `swift:${apiUrl}:${packageName}:tags`;
+    const repo = this.resolveRepo(packageName, repositoryName);
+    const cacheKey = `swift:${repo.apiUrl}:${repo.key}:${packageName}:tags`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as GitHubTag[];
     }
 
-    const url = `${apiUrl}/repos/${packageName}/tags?per_page=100`;
-    const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
+    const url = `${repo.apiUrl}/repos/${packageName}/tags?per_page=100`;
+    const response = await fetchWithHeaders(url, { auth: repo.auth });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -117,16 +123,15 @@ export class SwiftClient implements RegistryClient {
     packageName: string,
     repositoryName?: string,
   ): Promise<GitHubRelease[]> {
-    const apiUrl = this.getApiUrl(repositoryName);
-    const repoConfig = getRepositoryConfig("swift", repositoryName);
-    const cacheKey = `swift:${apiUrl}:${packageName}:releases`;
+    const repo = this.resolveRepo(packageName, repositoryName);
+    const cacheKey = `swift:${repo.apiUrl}:${repo.key}:${packageName}:releases`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as GitHubRelease[];
     }
 
-    const url = `${apiUrl}/repos/${packageName}/releases?per_page=100`;
-    const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
+    const url = `${repo.apiUrl}/repos/${packageName}/releases?per_page=100`;
+    const response = await fetchWithHeaders(url, { auth: repo.auth });
 
     if (!response.ok) {
       // Releases endpoint might fail for repos without releases, that's OK
@@ -142,16 +147,15 @@ export class SwiftClient implements RegistryClient {
     packageName: string,
     repositoryName?: string,
   ): Promise<GitHubRepo> {
-    const apiUrl = this.getApiUrl(repositoryName);
-    const repoConfig = getRepositoryConfig("swift", repositoryName);
-    const cacheKey = `swift:${apiUrl}:${packageName}:repo`;
+    const repo = this.resolveRepo(packageName, repositoryName);
+    const cacheKey = `swift:${repo.apiUrl}:${repo.key}:${packageName}:repo`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as GitHubRepo;
     }
 
-    const url = `${apiUrl}/repos/${packageName}`;
-    const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
+    const url = `${repo.apiUrl}/repos/${packageName}`;
+    const response = await fetchWithHeaders(url, { auth: repo.auth });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -255,17 +259,17 @@ export class SwiftClient implements RegistryClient {
     reference: string,
     options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
-    const apiUrl = this.getApiUrl(options?.repository);
-    const repoConfig = getRepositoryConfig("swift", options?.repository);
-    const cacheKey = `swift:${apiUrl}:${packageName}:commit:${reference}`;
+    const repo = this.resolveRepo(packageName, options?.repository);
+    const cacheKey =
+      `swift:${repo.apiUrl}:${repo.key}:${packageName}:commit:${reference}`;
     let commitSha = versionCache.get(cacheKey) as string | undefined;
 
     if (!commitSha) {
-      const url = `${apiUrl}/repos/${packageName}/commits/${
+      const url = `${repo.apiUrl}/repos/${packageName}/commits/${
         encodeURIComponent(reference)
       }`;
       const response = await fetchWithHeaders(url, {
-        auth: repoConfig.auth,
+        auth: repo.auth,
         headers: { "Accept": "application/vnd.github.sha" },
       });
 
@@ -303,6 +307,50 @@ export class SwiftClient implements RegistryClient {
           ? `Updating means re-resolving branch '${reference}' to its latest commit, not moving to a release.`
           : `Tag '${reference}' can be moved to a different commit; re-resolve it to detect changes.`,
       ],
+    };
+  }
+
+  /**
+   * Reverse-resolve a revision pin (full or >= 7-char commit SHA prefix)
+   * to the version tag(s) pointing at that commit. This makes a
+   * `.revision("...")` pin in Package.swift self-describing.
+   */
+  async resolveDigest(
+    packageName: string,
+    digest: string,
+    options?: { repository?: string },
+  ): Promise<DigestResolution> {
+    if (!isCommitShaLike(digest)) {
+      throw new Error(
+        `'${digest}' is not a commit SHA. Provide the full 40-character ` +
+          "SHA or a prefix of at least 7 characters.",
+      );
+    }
+
+    const tags = await this.fetchTags(packageName, options?.repository);
+
+    const matches = matchTagsByCommitSha(tags, digest).map((tag) => ({
+      reference: tag.name,
+      version: isSemverTag(tag.name) ? stripVPrefix(tag.name) : undefined,
+    }));
+
+    const versions = sortVersionsDescending(
+      matches.flatMap((m) => (m.version ? [m.version] : [])),
+    );
+
+    return {
+      packageName,
+      registry: "swift",
+      digest,
+      matches,
+      pinnedVersion: versions[0],
+      notes: matches.length === 0
+        ? [
+          `No tag among the repository's ${tags.length} most recent tags ` +
+          `points at commit '${digest}'. The pin may reference an untagged ` +
+          "commit (e.g. from a branch) or a tag older than the fetched page.",
+        ]
+        : undefined,
     };
   }
 

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/logo.svg" alt="mcp-dependency-version Logo" width="200" height="200" />
+</p>
+
 # MCP Dependency Version
 
 A Model Context Protocol (MCP) server for looking up package versions across
@@ -71,6 +75,24 @@ point to a different commit at any time, creating a supply chain attack vector.
 the exact same action code. The `lookup_version` and `list_versions` tools
 return the `digest` (commit SHA) and `secureReference` fields for GitHub Actions
 to make this easy.
+
+#### Monorepo actions
+
+Actions that live as subdirectories of a shared repository are referenced with
+their path (`uses: org/actions/deploy@...`) and are supported as
+`owner/repo/path` package names. Two versioning conventions are recognized:
+
+- **Per-action tags**: the repository tags each action's releases by prefixing
+  the version with the action name — `deploy-v1.2.3` or `deploy@v1.2.3` (the
+  action name may itself contain dashes). When such tags exist for the action,
+  only they are considered, and repo-level tags (`v54`, `v1.2.3`) are ignored
+  for that action.
+- **Repo-level tags**: repositories like `github/codeql-action` version their
+  subpath actions (`init`, `analyze`, ...) with plain repository-wide semver
+  tags. When an action has no prefixed tags, these are used as a fallback.
+
+Version lookups, listings, update analysis, and commit SHA pinning all work on
+the per-action versions.
 
 ## Supported Registries
 
@@ -353,7 +375,7 @@ Create a configuration file at `~/.config/mcp-dependency-version/config.json`:
 }
 ```
 
-### Environment Variable
+### Environment Variables
 
 You can override the config file path using the `MCP_DEPENDENCY_VERSION_CONFIG`
 environment variable:
@@ -361,6 +383,21 @@ environment variable:
 ```bash
 export MCP_DEPENDENCY_VERSION_CONFIG=/path/to/config.json
 ```
+
+Alternatively, pass the entire configuration as inline JSON via
+`MCP_DEPENDENCY_VERSION_CONFIG_JSON`. When set, it takes precedence over the
+config file. This is convenient in containerized setups (e.g. an MCP gateway
+starting the server with `docker run`) where injecting an environment variable
+is easier than mounting a file:
+
+```bash
+docker run --rm -i \
+  -e MCP_DEPENDENCY_VERSION_CONFIG_JSON="$(cat config.json)" \
+  ghcr.io/tripletex/mcp-dependency-version:<tag>
+```
+
+If the variable contains invalid JSON, a warning is printed to stderr and the
+server falls back to the config file (then to the built-in defaults).
 
 ### Authentication
 
@@ -386,6 +423,67 @@ The configuration supports two authentication methods:
   }
 }
 ```
+
+Tokens are stored as plain text in the config file — environment variables are
+not expanded inside config values. Restrict the file's permissions accordingly
+(`chmod 600`).
+
+### GitHub authentication (github-actions and swift)
+
+The `github-actions` and `swift` registries are backed by the GitHub API. For
+these registries, repository entries are configured with the **web URL** of the
+organization or repository — not the API endpoint — and the entry whose URL is
+the longest prefix of the package's GitHub URL supplies the authentication. This
+lets different organizations use different tokens, which is how you give the
+server access to actions in private repositories:
+
+```json
+{
+  "repositories": {
+    "github-actions": {
+      "tripletex": {
+        "name": "Tripletex (private)",
+        "url": "https://github.com/Tripletex",
+        "auth": { "token": "ghp_private_org_token" }
+      },
+      "github": {
+        "name": "GitHub public (authenticated)",
+        "url": "https://github.com/",
+        "default": true,
+        "auth": { "token": "ghp_public_token" }
+      }
+    }
+  }
+}
+```
+
+With this configuration, a lookup of `Tripletex/deploy-action` uses the private
+org token, while `actions/checkout` matches the bare `https://github.com/` entry
+and uses the public token (raising the GitHub API rate limit from 60 to 5,000
+requests/hour). Omit the `auth` block on the default entry to keep public
+lookups unauthenticated.
+
+Matching rules:
+
+- Longest URL prefix wins: `https://github.com/Tripletex/special-repo` beats
+  `https://github.com/Tripletex`, which beats `https://github.com/`.
+- Owner and repository comparison is case-insensitive, matching GitHub's
+  behavior.
+- Entries that do not match fall back to the `default: true` entry, then to the
+  first configured entry.
+- The API base URL is derived from the entry's host: `github.com` uses
+  `https://api.github.com`, and any other host (GitHub Enterprise Server) uses
+  `https://<host>/api/v3`. Legacy entries that point directly at
+  `https://api.github.com` keep working as default/fallback entries but are
+  never selected by URL matching.
+
+For GitHub Enterprise, set the default entry to your GHES host (either
+`https://ghe.example.com/` or the explicit `https://ghe.example.com/api/v3`).
+Package names such as `owner/repo` carry no host, so unmatched lookups go to
+whichever entry is the default.
+
+A fine-grained personal access token with read-only `contents` and `metadata`
+permissions on the relevant repositories is sufficient for version lookups.
 
 ### Default Repositories
 
@@ -429,6 +527,12 @@ Look up the latest version of a package.
   resolved version and, where supported, a commit SHA / `sha256:` digest in
   `digest`, flagged `isMutable: true`. Supported for `github-actions`, `swift`,
   `npm`, and `docker`. Mutually exclusive with `versionPrefix`.
+- `currentDigest` (optional): Reverse-resolve an existing digest pin to the
+  version it corresponds to. For `github-actions` and `swift`, a commit SHA
+  (full 40 characters or a prefix of at least 7); for `docker`, a `sha256:`
+  digest. The response adds a `pin` object with the matching tags, the pinned
+  version, and the update type relative to the latest version. Mutually
+  exclusive with `versionPrefix` and `versionReference`.
 
 **Example:**
 
@@ -517,6 +621,44 @@ Resolve a GitHub Actions branch to its current commit SHA for pinning:
   ]
 }
 ```
+
+**Reverse pin lookup (`currentDigest`):**
+
+Identify which version an existing SHA pin corresponds to, and how far behind it
+is:
+
+```json
+{
+  "registry": "github-actions",
+  "package": "actions/checkout",
+  "currentDigest": "b4ffde65f46336ab88eb53be808477a3936bae11"
+}
+```
+
+```json
+{
+  "packageName": "actions/checkout",
+  "registry": "github-actions",
+  "latestStable": "7.0.0",
+  "digest": "8edcb1bdb4e267140fa742c62e395cd74f332709",
+  "secureReference": "actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709 # v7.0.0",
+  "pin": {
+    "digest": "b4ffde65f46336ab88eb53be808477a3936bae11",
+    "matches": [
+      { "reference": "v4.2.0", "version": "4.2.0" },
+      { "reference": "v4", "version": "4.2.0" }
+    ],
+    "pinnedVersion": "4.2.0",
+    "updateType": "major"
+  }
+}
+```
+
+For Docker, one digest commonly maps to several tags (`1.27.3`, `1.27`,
+`latest`, ...); all matches are returned and per-architecture digest matches are
+annotated in `detail`. When nothing matches -- an untagged commit, a
+force-pushed tag's previous target, or a digest older than the fetched tag page
+-- `pin.matches` is empty and `pin.notes` explains the possible causes.
 
 ### list_versions
 

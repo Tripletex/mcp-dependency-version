@@ -1,13 +1,18 @@
 /**
  * GitHub Actions Registry Client
  * Uses the GitHub API for version lookups since GitHub Actions are GitHub repositories
- * Package format: owner/repo (e.g., actions/checkout, github/codeql-action)
+ * Package format: owner/repo (e.g., actions/checkout, github/codeql-action) or
+ * owner/repo/path for actions living in a monorepo (e.g., org/actions/deploy).
+ *
+ * Monorepo actions are versioned with action-prefixed tags
+ * (<action>-vX.Y.Z or <action>@vX.Y.Z); see src/utils/action-tags.ts.
  *
  * Provides commit SHA-pinned secure references for supply chain security,
  * since action tags/versions are mutable and can be force-pushed.
  */
 
 import type {
+  DigestResolution,
   LookupOptions,
   PackageMetadata,
   Registry,
@@ -23,7 +28,18 @@ import {
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
-import { getRepositoryConfig } from "../config/loader.ts";
+import {
+  isCommitShaLike,
+  isSemverTag,
+  matchTagsByCommitSha,
+  splitActionPackage,
+  tagVersionExtractor,
+  versionFromTag,
+} from "../utils/action-tags.ts";
+import {
+  type ResolvedGitHubRepository,
+  resolveGitHubRepository,
+} from "../config/github.ts";
 
 interface GitHubTag {
   name: string;
@@ -52,21 +68,6 @@ interface GitHubRepo {
 }
 
 /**
- * Check if a tag name looks like a semver version
- * GitHub Actions commonly use: v1, v1.0.0, v1.0, etc.
- */
-function isSemverTag(tag: string): boolean {
-  return /^v?\d+(\.\d+)?(\.\d+)?(-[\w.]+)?(\+[\w.]+)?$/.test(tag);
-}
-
-/**
- * Strip the "v" prefix from a tag for version comparison
- */
-function stripVPrefix(tag: string): string {
-  return tag.startsWith("v") ? tag.slice(1) : tag;
-}
-
-/**
  * Format a secure SHA-pinned action reference
  * e.g., actions/checkout@abc123def456... # v4.2.0
  */
@@ -81,25 +82,34 @@ function formatSecureReference(
 export class GitHubActionsClient implements RegistryClient {
   readonly registry = "github-actions" as const satisfies Registry;
 
-  private getApiUrl(repositoryName?: string): string {
-    const repoConfig = getRepositoryConfig("github-actions", repositoryName);
-    return repoConfig.url;
+  private resolveRepo(
+    packageName: string,
+    repositoryName?: string,
+  ): ResolvedGitHubRepository {
+    return resolveGitHubRepository(
+      "github-actions",
+      packageName,
+      repositoryName,
+    );
   }
 
   private async fetchTags(
     packageName: string,
     repositoryName?: string,
   ): Promise<GitHubTag[]> {
-    const apiUrl = this.getApiUrl(repositoryName);
-    const repoConfig = getRepositoryConfig("github-actions", repositoryName);
-    const cacheKey = `github-actions:${apiUrl}:${packageName}:tags`;
+    const repo = this.resolveRepo(packageName, repositoryName);
+    const { repoSlug } = splitActionPackage(packageName);
+    // Cache per repository, not per action: all actions in a monorepo share
+    // the same tag list.
+    const cacheKey =
+      `github-actions:${repo.apiUrl}:${repo.key}:${repoSlug}:tags`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as GitHubTag[];
     }
 
-    const url = `${apiUrl}/repos/${packageName}/tags?per_page=100`;
-    const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
+    const url = `${repo.apiUrl}/repos/${repoSlug}/tags?per_page=100`;
+    const response = await fetchWithHeaders(url, { auth: repo.auth });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -121,16 +131,17 @@ export class GitHubActionsClient implements RegistryClient {
     packageName: string,
     repositoryName?: string,
   ): Promise<GitHubRelease[]> {
-    const apiUrl = this.getApiUrl(repositoryName);
-    const repoConfig = getRepositoryConfig("github-actions", repositoryName);
-    const cacheKey = `github-actions:${apiUrl}:${packageName}:releases`;
+    const repo = this.resolveRepo(packageName, repositoryName);
+    const { repoSlug } = splitActionPackage(packageName);
+    const cacheKey =
+      `github-actions:${repo.apiUrl}:${repo.key}:${repoSlug}:releases`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as GitHubRelease[];
     }
 
-    const url = `${apiUrl}/repos/${packageName}/releases?per_page=100`;
-    const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
+    const url = `${repo.apiUrl}/repos/${repoSlug}/releases?per_page=100`;
+    const response = await fetchWithHeaders(url, { auth: repo.auth });
 
     if (!response.ok) {
       // Releases endpoint might fail for repos without releases, that's OK
@@ -146,16 +157,17 @@ export class GitHubActionsClient implements RegistryClient {
     packageName: string,
     repositoryName?: string,
   ): Promise<GitHubRepo> {
-    const apiUrl = this.getApiUrl(repositoryName);
-    const repoConfig = getRepositoryConfig("github-actions", repositoryName);
-    const cacheKey = `github-actions:${apiUrl}:${packageName}:repo`;
+    const repo = this.resolveRepo(packageName, repositoryName);
+    const { repoSlug } = splitActionPackage(packageName);
+    const cacheKey =
+      `github-actions:${repo.apiUrl}:${repo.key}:${repoSlug}:repo`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as GitHubRepo;
     }
 
-    const url = `${apiUrl}/repos/${packageName}`;
-    const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
+    const url = `${repo.apiUrl}/repos/${repoSlug}`;
+    const response = await fetchWithHeaders(url, { auth: repo.auth });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -177,15 +189,22 @@ export class GitHubActionsClient implements RegistryClient {
     packageName: string,
     options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
+    const { actionPath } = splitActionPackage(packageName);
     const tags = await this.fetchTags(packageName, options?.repository);
     const releases = await this.fetchReleases(
       packageName,
       options?.repository,
     );
 
-    // Filter to semver tags only and strip v prefix for comparison
-    const semverTags = tags.filter((t) => isSemverTag(t.name));
-    let versionStrings = semverTags.map((t) => stripVPrefix(t.name));
+    // Keep only the tags that version this package: action-prefixed tags for
+    // a monorepo subpath action (falling back to repo-level semver tags when
+    // none exist, as in github/codeql-action/init), plain semver otherwise.
+    const versionOf = tagVersionExtractor(tags.map((t) => t.name), actionPath);
+    const versionedTags = tags.flatMap((tag) => {
+      const version = versionOf(tag.name);
+      return version === null ? [] : [{ tag, version }];
+    });
+    let versionStrings = versionedTags.map((t) => t.version);
 
     if (options?.versionPrefix) {
       versionStrings = filterByPrefix(versionStrings, options.versionPrefix);
@@ -211,14 +230,14 @@ export class GitHubActionsClient implements RegistryClient {
     }
 
     // Find the tag with matching version to get commit SHA
-    const matchingTag = semverTags.find(
-      (t) => stripVPrefix(t.name) === resolved.latestStable,
-    );
+    const matchingTag = versionedTags.find(
+      (t) => t.version === resolved.latestStable,
+    )?.tag;
     const commitSha = matchingTag?.commit.sha;
 
     // Find release data for publish date
     const release = releases.find(
-      (r) => stripVPrefix(r.tag_name) === resolved.latestStable,
+      (r) => versionOf(r.tag_name) === resolved.latestStable,
     );
 
     const versionTag = matchingTag?.name ?? `v${resolved.latestStable}`;
@@ -263,21 +282,18 @@ export class GitHubActionsClient implements RegistryClient {
     reference: string,
     options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
-    const apiUrl = this.getApiUrl(options?.repository);
-    const repoConfig = getRepositoryConfig(
-      "github-actions",
-      options?.repository,
-    );
+    const repo = this.resolveRepo(packageName, options?.repository);
+    const { repoSlug, actionPath } = splitActionPackage(packageName);
     const cacheKey =
-      `github-actions:${apiUrl}:${packageName}:commit:${reference}`;
+      `github-actions:${repo.apiUrl}:${repo.key}:${repoSlug}:commit:${reference}`;
     let commitSha = versionCache.get(cacheKey) as string | undefined;
 
     if (!commitSha) {
-      const url = `${apiUrl}/repos/${packageName}/commits/${
+      const url = `${repo.apiUrl}/repos/${repoSlug}/commits/${
         encodeURIComponent(reference)
       }`;
       const response = await fetchWithHeaders(url, {
-        auth: repoConfig.auth,
+        auth: repo.auth,
         headers: { "Accept": "application/vnd.github.sha" },
       });
 
@@ -298,8 +314,12 @@ export class GitHubActionsClient implements RegistryClient {
 
     // Classify the reference so the security notes use accurate wording.
     // Both branches and tags are mutable on GitHub Actions, but "updating"
-    // means something different for each.
-    const refKind = isSemverTag(reference) ? "tag" : "branch";
+    // means something different for each. A monorepo version reference
+    // (<action>-vX.Y.Z) is a tag, as is a plain repo-level semver tag.
+    const refKind =
+      versionFromTag(reference, actionPath) !== null || isSemverTag(reference)
+        ? "tag"
+        : "branch";
 
     return {
       packageName,
@@ -321,24 +341,77 @@ export class GitHubActionsClient implements RegistryClient {
     };
   }
 
+  /**
+   * Reverse-resolve a commit SHA pin (full or >= 7-char prefix) to the
+   * version tag(s) pointing at that commit. Several tags commonly match one
+   * commit (e.g. both v4 and v4.2.0), which tells the caller exactly which
+   * release their pin corresponds to.
+   */
+  async resolveDigest(
+    packageName: string,
+    digest: string,
+    options?: { repository?: string },
+  ): Promise<DigestResolution> {
+    if (!isCommitShaLike(digest)) {
+      throw new Error(
+        `'${digest}' is not a commit SHA. Provide the full 40-character ` +
+          "SHA or a prefix of at least 7 characters.",
+      );
+    }
+
+    const { actionPath } = splitActionPackage(packageName);
+    const tags = await this.fetchTags(packageName, options?.repository);
+    const versionOf = tagVersionExtractor(tags.map((t) => t.name), actionPath);
+
+    const matches = matchTagsByCommitSha(tags, digest).map((tag) => ({
+      reference: tag.name,
+      version: versionOf(tag.name) ?? undefined,
+    }));
+
+    const versions = sortVersionsDescending(
+      matches.flatMap((m) => (m.version ? [m.version] : [])),
+    );
+
+    return {
+      packageName,
+      registry: "github-actions",
+      digest,
+      matches,
+      pinnedVersion: versions[0],
+      notes: matches.length === 0
+        ? [
+          `No tag among the repository's ${tags.length} most recent tags ` +
+          `points at commit '${digest}'. The pin may reference an untagged ` +
+          "commit (e.g. from a branch), a force-pushed tag's previous " +
+          "target, or a tag older than the fetched page.",
+        ]
+        : undefined,
+    };
+  }
+
   async listVersions(
     packageName: string,
     options?: { repository?: string },
   ): Promise<VersionDetail[]> {
+    const { actionPath } = splitActionPackage(packageName);
     const tags = await this.fetchTags(packageName, options?.repository);
     const releases = await this.fetchReleases(
       packageName,
       options?.repository,
     );
 
-    // Filter to semver tags only
-    const semverTags = tags.filter((t) => isSemverTag(t.name));
-    const versionStrings = semverTags.map((t) => stripVPrefix(t.name));
+    // Keep only the tags that version this package (see lookupVersion)
+    const versionOf = tagVersionExtractor(tags.map((t) => t.name), actionPath);
+    const versionedTags = tags.flatMap((tag) => {
+      const version = versionOf(tag.name);
+      return version === null ? [] : [{ tag, version }];
+    });
+    const versionStrings = versionedTags.map((t) => t.version);
 
     return sortVersionsDescending(versionStrings).map((version) => {
-      const tag = semverTags.find((t) => stripVPrefix(t.name) === version);
+      const tag = versionedTags.find((t) => t.version === version)?.tag;
       const release = releases.find(
-        (r) => stripVPrefix(r.tag_name) === version,
+        (r) => versionOf(r.tag_name) === version,
       );
       return {
         version,

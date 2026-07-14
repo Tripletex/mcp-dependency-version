@@ -27,7 +27,7 @@ const inputSchema = z.object({
     "Package registry (npm, maven, pypi, cargo, go, jsr, nuget, docker, rubygems, packagist, pub, swift, github-actions)",
   ),
   package: z.string().describe(
-    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo), GitHub Actions uses owner/repo (actions/checkout)",
+    "Package name. Maven uses groupId:artifactId format, Go uses full module path, JSR uses @scope/name, Docker uses image name (nginx, user/repo), GitHub Actions uses owner/repo (actions/checkout) or owner/repo/path for monorepo actions (org/actions/deploy)",
   ),
   limit: z.number().optional().default(20).describe(
     "Maximum number of versions to return (default: 20)",
