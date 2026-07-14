@@ -72,6 +72,24 @@ the exact same action code. The `lookup_version` and `list_versions` tools
 return the `digest` (commit SHA) and `secureReference` fields for GitHub Actions
 to make this easy.
 
+#### Monorepo actions
+
+Actions that live as subdirectories of a shared repository are referenced with
+their path (`uses: org/actions/deploy@...`) and are supported as
+`owner/repo/path` package names. Two versioning conventions are recognized:
+
+- **Per-action tags**: the repository tags each action's releases by prefixing
+  the version with the action name — `deploy-v1.2.3` or `deploy@v1.2.3` (the
+  action name may itself contain dashes). When such tags exist for the action,
+  only they are considered, and repo-level tags (`v54`, `v1.2.3`) are ignored
+  for that action.
+- **Repo-level tags**: repositories like `github/codeql-action` version their
+  subpath actions (`init`, `analyze`, ...) with plain repository-wide semver
+  tags. When an action has no prefixed tags, these are used as a fallback.
+
+Version lookups, listings, update analysis, and commit SHA pinning all work on
+the per-action versions.
+
 ## Supported Registries
 
 | Registry       | API Endpoint           | Package Format                   |
