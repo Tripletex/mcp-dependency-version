@@ -1,6 +1,8 @@
 import { assertEquals } from "@std/assert";
 import {
+  isCommitShaLike,
   matchActionTag,
+  matchTagsByCommitSha,
   normalizeActionRef,
   splitActionPackage,
   tagVersionExtractor,
@@ -128,4 +130,57 @@ Deno.test("normalizeActionRef - subpath action with repo-level ref", () => {
 Deno.test("normalizeActionRef - standalone action strips v only", () => {
   assertEquals(normalizeActionRef("v4.2.0"), "4.2.0");
   assertEquals(normalizeActionRef("main"), "main");
+});
+
+Deno.test("isCommitShaLike - accepts full and abbreviated SHAs", () => {
+  assertEquals(
+    isCommitShaLike("b4ffde65f46336ab88eb53be808477a3936bae11"),
+    true,
+  );
+  assertEquals(isCommitShaLike("b4ffde6"), true);
+  assertEquals(isCommitShaLike("B4FFDE6"), true);
+});
+
+Deno.test("isCommitShaLike - rejects short, long, and non-hex values", () => {
+  assertEquals(isCommitShaLike("b4ffde"), false); // 6 chars
+  assertEquals(
+    isCommitShaLike("b4ffde65f46336ab88eb53be808477a3936bae11a"),
+    false,
+  ); // 41 chars
+  assertEquals(isCommitShaLike("v4.2.0"), false);
+  assertEquals(isCommitShaLike("main"), false);
+});
+
+const COMMIT_TAGS = [
+  { name: "v4", commit: { sha: "b4ffde65f46336ab88eb53be808477a3936bae11" } },
+  {
+    name: "v4.2.0",
+    commit: { sha: "b4ffde65f46336ab88eb53be808477a3936bae11" },
+  },
+  {
+    name: "v4.1.0",
+    commit: { sha: "1e31de5234b9f8995739874a8ce0492dc87873e2" },
+  },
+];
+
+Deno.test("matchTagsByCommitSha - full SHA matches every pointing tag", () => {
+  const matched = matchTagsByCommitSha(
+    COMMIT_TAGS,
+    "b4ffde65f46336ab88eb53be808477a3936bae11",
+  );
+  assertEquals(matched.map((t) => t.name), ["v4", "v4.2.0"]);
+});
+
+Deno.test("matchTagsByCommitSha - short SHA prefix matches", () => {
+  const matched = matchTagsByCommitSha(COMMIT_TAGS, "1e31de5");
+  assertEquals(matched.map((t) => t.name), ["v4.1.0"]);
+});
+
+Deno.test("matchTagsByCommitSha - comparison is case-insensitive", () => {
+  const matched = matchTagsByCommitSha(COMMIT_TAGS, "B4FFDE65");
+  assertEquals(matched.length, 2);
+});
+
+Deno.test("matchTagsByCommitSha - unknown SHA matches nothing", () => {
+  assertEquals(matchTagsByCommitSha(COMMIT_TAGS, "deadbeef"), []);
 });

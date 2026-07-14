@@ -12,6 +12,7 @@
  */
 
 import type {
+  DigestResolution,
   LookupOptions,
   PackageMetadata,
   Registry,
@@ -28,7 +29,9 @@ import {
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
 import {
+  isCommitShaLike,
   isSemverTag,
+  matchTagsByCommitSha,
   splitActionPackage,
   tagVersionExtractor,
   versionFromTag,
@@ -335,6 +338,54 @@ export class GitHubActionsClient implements RegistryClient {
           ? `Updating means re-resolving branch '${reference}' to its latest commit, not moving to a release.`
           : `Tag '${reference}' can be force-pushed; re-resolve it to detect changes.`,
       ],
+    };
+  }
+
+  /**
+   * Reverse-resolve a commit SHA pin (full or >= 7-char prefix) to the
+   * version tag(s) pointing at that commit. Several tags commonly match one
+   * commit (e.g. both v4 and v4.2.0), which tells the caller exactly which
+   * release their pin corresponds to.
+   */
+  async resolveDigest(
+    packageName: string,
+    digest: string,
+    options?: { repository?: string },
+  ): Promise<DigestResolution> {
+    if (!isCommitShaLike(digest)) {
+      throw new Error(
+        `'${digest}' is not a commit SHA. Provide the full 40-character ` +
+          "SHA or a prefix of at least 7 characters.",
+      );
+    }
+
+    const { actionPath } = splitActionPackage(packageName);
+    const tags = await this.fetchTags(packageName, options?.repository);
+    const versionOf = tagVersionExtractor(tags.map((t) => t.name), actionPath);
+
+    const matches = matchTagsByCommitSha(tags, digest).map((tag) => ({
+      reference: tag.name,
+      version: versionOf(tag.name) ?? undefined,
+    }));
+
+    const versions = sortVersionsDescending(
+      matches.flatMap((m) => (m.version ? [m.version] : [])),
+    );
+
+    return {
+      packageName,
+      registry: "github-actions",
+      digest,
+      matches,
+      pinnedVersion: versions[0],
+      notes: matches.length === 0
+        ? [
+          `No tag among the repository's ${tags.length} most recent tags ` +
+          `points at commit '${digest}'. The pin may reference an untagged ` +
+          "commit (e.g. from a branch), a force-pushed tag's previous " +
+          "target, or a tag older than the fetched page.",
+        ]
+        : undefined,
     };
   }
 

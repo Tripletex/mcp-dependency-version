@@ -5,6 +5,7 @@
  */
 
 import type {
+  DigestResolution,
   LookupOptions,
   PackageMetadata,
   Registry,
@@ -20,6 +21,7 @@ import {
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
+import { isCommitShaLike, matchTagsByCommitSha } from "../utils/action-tags.ts";
 import {
   type ResolvedGitHubRepository,
   resolveGitHubRepository,
@@ -305,6 +307,50 @@ export class SwiftClient implements RegistryClient {
           ? `Updating means re-resolving branch '${reference}' to its latest commit, not moving to a release.`
           : `Tag '${reference}' can be moved to a different commit; re-resolve it to detect changes.`,
       ],
+    };
+  }
+
+  /**
+   * Reverse-resolve a revision pin (full or >= 7-char commit SHA prefix)
+   * to the version tag(s) pointing at that commit. This makes a
+   * `.revision("...")` pin in Package.swift self-describing.
+   */
+  async resolveDigest(
+    packageName: string,
+    digest: string,
+    options?: { repository?: string },
+  ): Promise<DigestResolution> {
+    if (!isCommitShaLike(digest)) {
+      throw new Error(
+        `'${digest}' is not a commit SHA. Provide the full 40-character ` +
+          "SHA or a prefix of at least 7 characters.",
+      );
+    }
+
+    const tags = await this.fetchTags(packageName, options?.repository);
+
+    const matches = matchTagsByCommitSha(tags, digest).map((tag) => ({
+      reference: tag.name,
+      version: isSemverTag(tag.name) ? stripVPrefix(tag.name) : undefined,
+    }));
+
+    const versions = sortVersionsDescending(
+      matches.flatMap((m) => (m.version ? [m.version] : [])),
+    );
+
+    return {
+      packageName,
+      registry: "swift",
+      digest,
+      matches,
+      pinnedVersion: versions[0],
+      notes: matches.length === 0
+        ? [
+          `No tag among the repository's ${tags.length} most recent tags ` +
+          `points at commit '${digest}'. The pin may reference an untagged ` +
+          "commit (e.g. from a branch) or a tag older than the fetched page.",
+        ]
+        : undefined,
     };
   }
 

@@ -7,6 +7,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getClient, supportedRegistries } from "../registries/index.ts";
 import type { Registry } from "../registries/types.ts";
+import { getUpdateType } from "../utils/version.ts";
 
 const inputSchema = z.object({
   registry: z.enum([
@@ -46,6 +47,14 @@ const inputSchema = z.object({
       "a pinned digest/commit SHA in the 'digest' field. The result is MUTABLE " +
       "(isMutable: true) - it will drift as the branch/tag moves. Mutually " +
       "exclusive with versionPrefix.",
+  ),
+  currentDigest: z.string().optional().describe(
+    "Reverse-resolve an existing digest pin to the version it corresponds " +
+      "to. github-actions/swift: a commit SHA (full 40 chars or a prefix of " +
+      "at least 7); docker: a sha256 manifest digest. The response adds a " +
+      "'pin' object with the matching tags, the pinned version, and the " +
+      "update type (major/minor/patch/none) relative to the latest version. " +
+      "Mutually exclusive with versionPrefix and versionReference.",
   ),
 });
 
@@ -93,6 +102,13 @@ concrete version; Docker tag (versionReference: "latest") returns the sha256
 digest. Such results are flagged isMutable: true. Supported for github-actions,
 swift, npm, and docker.
 
+REVERSE PIN LOOKUP: When you have an existing digest pin and want to know
+which version it is (and how far behind), pass it as 'currentDigest'.
+github-actions/swift: the commit SHA from 'owner/repo@<sha>'; docker: the
+sha256 digest from 'image@sha256:...'. The response adds a 'pin' object:
+matching tags, pinnedVersion, and updateType vs the latest version. Supported
+for github-actions, swift, and docker.
+
 SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1.2.3" or "~1.2.3") to prevent dependency supply chain attacks.`,
     inputSchema.shape,
     async (
@@ -102,6 +118,7 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
         includePrerelease,
         versionPrefix,
         versionReference,
+        currentDigest,
       },
     ) => {
       try {
@@ -112,8 +129,23 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
               'versionReference for floating refs (e.g. "main", "latest").',
           );
         }
+        if (currentDigest && (versionReference || versionPrefix)) {
+          throw new Error(
+            "currentDigest is mutually exclusive with versionPrefix and " +
+              "versionReference; it reverse-resolves an existing pin while " +
+              "the lookup finds the latest version.",
+          );
+        }
 
         const client = getClient(registry as Registry);
+
+        if (currentDigest && !client.resolveDigest) {
+          throw new Error(
+            `Reverse digest lookup is not supported for registry '${registry}'. ` +
+              "It is available for registries with digest-pinned references " +
+              "(github-actions, swift, docker).",
+          );
+        }
 
         let result;
         if (versionReference) {
@@ -172,6 +204,29 @@ SECURITY: Always use exact versions (e.g., "1.2.3") instead of ranges (e.g., "^1
         }
         if (result.resolvedReference) {
           output.resolvedReference = result.resolvedReference;
+        }
+
+        // Reverse-resolve the caller's existing pin and classify the update
+        if (currentDigest && client.resolveDigest) {
+          const resolution = await client.resolveDigest(
+            packageName,
+            currentDigest,
+          );
+          const pin: Record<string, unknown> = {
+            digest: resolution.digest,
+            matches: resolution.matches,
+          };
+          if (resolution.pinnedVersion) {
+            pin.pinnedVersion = resolution.pinnedVersion;
+            pin.updateType = getUpdateType(
+              resolution.pinnedVersion,
+              result.latestStable,
+            );
+          }
+          if (resolution.notes) {
+            pin.notes = resolution.notes;
+          }
+          output.pin = pin;
         }
 
         return {

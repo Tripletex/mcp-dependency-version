@@ -131,6 +131,38 @@ export function tagVersionExtractor(
 }
 
 /**
+ * A git tag pointing at a commit, as returned by the GitHub tags API
+ */
+export interface CommitTag {
+  name: string;
+  commit: {
+    sha: string;
+  };
+}
+
+/**
+ * Check whether a string looks like a git commit SHA or an abbreviated
+ * SHA prefix. Git guarantees uniqueness for short SHAs; 7 characters is
+ * the conventional minimum.
+ */
+export function isCommitShaLike(value: string): boolean {
+  return /^[a-f0-9]{7,40}$/i.test(value);
+}
+
+/**
+ * Find the tags whose commit matches a full or abbreviated SHA.
+ * Comparison is case-insensitive and by prefix, so a short SHA pin
+ * (>= 7 chars) still resolves.
+ */
+export function matchTagsByCommitSha<T extends CommitTag>(
+  tags: T[],
+  digest: string,
+): T[] {
+  const needle = digest.toLowerCase();
+  return tags.filter((t) => t.commit.sha.toLowerCase().startsWith(needle));
+}
+
+/**
  * Normalize a workflow "uses:" version reference for comparison against
  * registry versions. Strips a monorepo action prefix when present, then the
  * leading "v": ("deploy-v1.2.3", "deploy") -> "1.2.3", "v4" -> "4".

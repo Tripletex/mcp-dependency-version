@@ -508,6 +508,12 @@ Look up the latest version of a package.
   resolved version and, where supported, a commit SHA / `sha256:` digest in
   `digest`, flagged `isMutable: true`. Supported for `github-actions`, `swift`,
   `npm`, and `docker`. Mutually exclusive with `versionPrefix`.
+- `currentDigest` (optional): Reverse-resolve an existing digest pin to the
+  version it corresponds to. For `github-actions` and `swift`, a commit SHA
+  (full 40 characters or a prefix of at least 7); for `docker`, a `sha256:`
+  digest. The response adds a `pin` object with the matching tags, the pinned
+  version, and the update type relative to the latest version. Mutually
+  exclusive with `versionPrefix` and `versionReference`.
 
 **Example:**
 
@@ -596,6 +602,44 @@ Resolve a GitHub Actions branch to its current commit SHA for pinning:
   ]
 }
 ```
+
+**Reverse pin lookup (`currentDigest`):**
+
+Identify which version an existing SHA pin corresponds to, and how far behind it
+is:
+
+```json
+{
+  "registry": "github-actions",
+  "package": "actions/checkout",
+  "currentDigest": "b4ffde65f46336ab88eb53be808477a3936bae11"
+}
+```
+
+```json
+{
+  "packageName": "actions/checkout",
+  "registry": "github-actions",
+  "latestStable": "7.0.0",
+  "digest": "8edcb1bdb4e267140fa742c62e395cd74f332709",
+  "secureReference": "actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709 # v7.0.0",
+  "pin": {
+    "digest": "b4ffde65f46336ab88eb53be808477a3936bae11",
+    "matches": [
+      { "reference": "v4.2.0", "version": "4.2.0" },
+      { "reference": "v4", "version": "4.2.0" }
+    ],
+    "pinnedVersion": "4.2.0",
+    "updateType": "major"
+  }
+}
+```
+
+For Docker, one digest commonly maps to several tags (`1.27.3`, `1.27`,
+`latest`, ...); all matches are returned and per-architecture digest matches are
+annotated in `detail`. When nothing matches -- an untagged commit, a
+force-pushed tag's previous target, or a digest older than the fetched tag page
+-- `pin.matches` is empty and `pin.notes` explains the possible causes.
 
 ### list_versions
 
