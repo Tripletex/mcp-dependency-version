@@ -375,7 +375,7 @@ Create a configuration file at `~/.config/mcp-dependency-version/config.json`:
 }
 ```
 
-### Environment Variable
+### Environment Variables
 
 You can override the config file path using the `MCP_DEPENDENCY_VERSION_CONFIG`
 environment variable:
@@ -383,6 +383,21 @@ environment variable:
 ```bash
 export MCP_DEPENDENCY_VERSION_CONFIG=/path/to/config.json
 ```
+
+Alternatively, pass the entire configuration as inline JSON via
+`MCP_DEPENDENCY_VERSION_CONFIG_JSON`. When set, it takes precedence over the
+config file. This is convenient in containerized setups (e.g. an MCP gateway
+starting the server with `docker run`) where injecting an environment variable
+is easier than mounting a file:
+
+```bash
+docker run --rm -i \
+  -e MCP_DEPENDENCY_VERSION_CONFIG_JSON="$(cat config.json)" \
+  ghcr.io/tripletex/mcp-dependency-version:<tag>
+```
+
+If the variable contains invalid JSON, a warning is printed to stderr and the
+server falls back to the config file (then to the built-in defaults).
 
 ### Authentication
 

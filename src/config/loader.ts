@@ -14,7 +14,55 @@ import process from "node:process";
 /** Config file path - can be overridden via MCP_DEPENDENCY_VERSION_CONFIG env var */
 const DEFAULT_CONFIG_PATH = "~/.config/mcp-dependency-version/config.json";
 
+/**
+ * Env var holding the full configuration as inline JSON. Takes precedence
+ * over the config file; useful in containerized setups where injecting an
+ * env var is easier than mounting a file.
+ */
+const INLINE_CONFIG_ENV = "MCP_DEPENDENCY_VERSION_CONFIG_JSON";
+
 let loadedConfig: Config | null = null;
+
+/**
+ * Parse an inline JSON config value. Returns null (with a warning) on
+ * invalid JSON so the loader can fall back to the config file.
+ */
+export function parseInlineConfig(content: string): Partial<Config> | null {
+  try {
+    const parsed = JSON.parse(content) as unknown;
+    if (
+      parsed === null || typeof parsed !== "object" || Array.isArray(parsed)
+    ) {
+      console.error(
+        `Warning: ${INLINE_CONFIG_ENV} must contain a JSON object; ignoring it.`,
+      );
+      return null;
+    }
+    return parsed as Partial<Config>;
+  } catch (error) {
+    console.error(
+      `Warning: Failed to parse ${INLINE_CONFIG_ENV} as JSON:`,
+      error instanceof Error ? error.message : error,
+    );
+    return null;
+  }
+}
+
+/**
+ * Read the inline config from the environment, if present and valid.
+ */
+function readInlineConfig(): Partial<Config> | null {
+  let content: string | undefined;
+  try {
+    content = process.env[INLINE_CONFIG_ENV];
+  } catch {
+    return null;
+  }
+  if (!content || content.trim().length === 0) {
+    return null;
+  }
+  return parseInlineConfig(content);
+}
 
 /**
  * Expand ~ to home directory
@@ -86,6 +134,12 @@ export async function loadConfig(): Promise<Config> {
     return loadedConfig;
   }
 
+  const inline = readInlineConfig();
+  if (inline) {
+    loadedConfig = mergeConfigs(DEFAULT_CONFIG, inline);
+    return loadedConfig;
+  }
+
   const configPath = getConfigPath();
   let userConfig: Partial<Config> = {};
 
@@ -112,6 +166,12 @@ export async function loadConfig(): Promise<Config> {
  */
 export function loadConfigSync(): Config {
   if (loadedConfig) {
+    return loadedConfig;
+  }
+
+  const inline = readInlineConfig();
+  if (inline) {
+    loadedConfig = mergeConfigs(DEFAULT_CONFIG, inline);
     return loadedConfig;
   }
 
