@@ -23,7 +23,10 @@ import {
 } from "../utils/version.ts";
 import { versionCache } from "../utils/cache.ts";
 import { fetchWithHeaders } from "../utils/http.ts";
-import { getRepositoryConfig } from "../config/loader.ts";
+import {
+  type ResolvedGitHubRepository,
+  resolveGitHubRepository,
+} from "../config/github.ts";
 
 interface GitHubTag {
   name: string;
@@ -81,25 +84,31 @@ function formatSecureReference(
 export class GitHubActionsClient implements RegistryClient {
   readonly registry = "github-actions" as const satisfies Registry;
 
-  private getApiUrl(repositoryName?: string): string {
-    const repoConfig = getRepositoryConfig("github-actions", repositoryName);
-    return repoConfig.url;
+  private resolveRepo(
+    packageName: string,
+    repositoryName?: string,
+  ): ResolvedGitHubRepository {
+    return resolveGitHubRepository(
+      "github-actions",
+      packageName,
+      repositoryName,
+    );
   }
 
   private async fetchTags(
     packageName: string,
     repositoryName?: string,
   ): Promise<GitHubTag[]> {
-    const apiUrl = this.getApiUrl(repositoryName);
-    const repoConfig = getRepositoryConfig("github-actions", repositoryName);
-    const cacheKey = `github-actions:${apiUrl}:${packageName}:tags`;
+    const repo = this.resolveRepo(packageName, repositoryName);
+    const cacheKey =
+      `github-actions:${repo.apiUrl}:${repo.key}:${packageName}:tags`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as GitHubTag[];
     }
 
-    const url = `${apiUrl}/repos/${packageName}/tags?per_page=100`;
-    const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
+    const url = `${repo.apiUrl}/repos/${packageName}/tags?per_page=100`;
+    const response = await fetchWithHeaders(url, { auth: repo.auth });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -121,16 +130,16 @@ export class GitHubActionsClient implements RegistryClient {
     packageName: string,
     repositoryName?: string,
   ): Promise<GitHubRelease[]> {
-    const apiUrl = this.getApiUrl(repositoryName);
-    const repoConfig = getRepositoryConfig("github-actions", repositoryName);
-    const cacheKey = `github-actions:${apiUrl}:${packageName}:releases`;
+    const repo = this.resolveRepo(packageName, repositoryName);
+    const cacheKey =
+      `github-actions:${repo.apiUrl}:${repo.key}:${packageName}:releases`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as GitHubRelease[];
     }
 
-    const url = `${apiUrl}/repos/${packageName}/releases?per_page=100`;
-    const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
+    const url = `${repo.apiUrl}/repos/${packageName}/releases?per_page=100`;
+    const response = await fetchWithHeaders(url, { auth: repo.auth });
 
     if (!response.ok) {
       // Releases endpoint might fail for repos without releases, that's OK
@@ -146,16 +155,16 @@ export class GitHubActionsClient implements RegistryClient {
     packageName: string,
     repositoryName?: string,
   ): Promise<GitHubRepo> {
-    const apiUrl = this.getApiUrl(repositoryName);
-    const repoConfig = getRepositoryConfig("github-actions", repositoryName);
-    const cacheKey = `github-actions:${apiUrl}:${packageName}:repo`;
+    const repo = this.resolveRepo(packageName, repositoryName);
+    const cacheKey =
+      `github-actions:${repo.apiUrl}:${repo.key}:${packageName}:repo`;
     const cached = versionCache.get(cacheKey);
     if (cached) {
       return cached as GitHubRepo;
     }
 
-    const url = `${apiUrl}/repos/${packageName}`;
-    const response = await fetchWithHeaders(url, { auth: repoConfig.auth });
+    const url = `${repo.apiUrl}/repos/${packageName}`;
+    const response = await fetchWithHeaders(url, { auth: repo.auth });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -263,21 +272,17 @@ export class GitHubActionsClient implements RegistryClient {
     reference: string,
     options?: LookupOptions & { repository?: string },
   ): Promise<VersionInfo> {
-    const apiUrl = this.getApiUrl(options?.repository);
-    const repoConfig = getRepositoryConfig(
-      "github-actions",
-      options?.repository,
-    );
+    const repo = this.resolveRepo(packageName, options?.repository);
     const cacheKey =
-      `github-actions:${apiUrl}:${packageName}:commit:${reference}`;
+      `github-actions:${repo.apiUrl}:${repo.key}:${packageName}:commit:${reference}`;
     let commitSha = versionCache.get(cacheKey) as string | undefined;
 
     if (!commitSha) {
-      const url = `${apiUrl}/repos/${packageName}/commits/${
+      const url = `${repo.apiUrl}/repos/${packageName}/commits/${
         encodeURIComponent(reference)
       }`;
       const response = await fetchWithHeaders(url, {
-        auth: repoConfig.auth,
+        auth: repo.auth,
         headers: { "Accept": "application/vnd.github.sha" },
       });
 
