@@ -387,6 +387,67 @@ The configuration supports two authentication methods:
 }
 ```
 
+Tokens are stored as plain text in the config file — environment variables are
+not expanded inside config values. Restrict the file's permissions accordingly
+(`chmod 600`).
+
+### GitHub authentication (github-actions and swift)
+
+The `github-actions` and `swift` registries are backed by the GitHub API. For
+these registries, repository entries are configured with the **web URL** of the
+organization or repository — not the API endpoint — and the entry whose URL is
+the longest prefix of the package's GitHub URL supplies the authentication. This
+lets different organizations use different tokens, which is how you give the
+server access to actions in private repositories:
+
+```json
+{
+  "repositories": {
+    "github-actions": {
+      "tripletex": {
+        "name": "Tripletex (private)",
+        "url": "https://github.com/Tripletex",
+        "auth": { "token": "ghp_private_org_token" }
+      },
+      "github": {
+        "name": "GitHub public (authenticated)",
+        "url": "https://github.com/",
+        "default": true,
+        "auth": { "token": "ghp_public_token" }
+      }
+    }
+  }
+}
+```
+
+With this configuration, a lookup of `Tripletex/deploy-action` uses the private
+org token, while `actions/checkout` matches the bare `https://github.com/` entry
+and uses the public token (raising the GitHub API rate limit from 60 to 5,000
+requests/hour). Omit the `auth` block on the default entry to keep public
+lookups unauthenticated.
+
+Matching rules:
+
+- Longest URL prefix wins: `https://github.com/Tripletex/special-repo` beats
+  `https://github.com/Tripletex`, which beats `https://github.com/`.
+- Owner and repository comparison is case-insensitive, matching GitHub's
+  behavior.
+- Entries that do not match fall back to the `default: true` entry, then to the
+  first configured entry.
+- The API base URL is derived from the entry's host: `github.com` uses
+  `https://api.github.com`, and any other host (GitHub Enterprise Server) uses
+  `https://<host>/api/v3`. Legacy entries that point directly at
+  `https://api.github.com` keep working as default/fallback entries but are
+  never selected by URL matching.
+
+For GitHub Enterprise, set the default entry to your GHES host (either
+`https://ghe.example.com/` or the explicit `https://ghe.example.com/api/v3`).
+Package names such as `owner/repo` carry no host, so unmatched lookups go to
+whichever entry is the default.
+
+A fine-grained personal access token with read-only `contents` and `metadata`
+permissions on the relevant repositories is sufficient for version lookups.
+
 ### Default Repositories
 
 If no configuration file exists, the server uses the official public registries:
